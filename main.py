@@ -1,26 +1,26 @@
 import sys
-from openpyxl import Workbook
+import os
+import getpass
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QSizePolicy,
     QLabel, QPushButton, QStackedWidget,
-    QTableWidget, QTableWidgetItem
+    QTableWidget, QTableWidgetItem, QSystemTrayIcon, QStyle, QDialog, QDialogButtonBox,
+    QHeaderView
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont, QFontDatabase, QIcon
 from openpyxl import Workbook, load_workbook  # Excel
 from openpyxl.styles import PatternFill, Font  # Стилизация ячеек
-import os  # ОС
 from documents import Type1
-import getpass
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("DOM RF")
-        self.resize(800, 500)
-
+        self.resize(1200, 700)
 
         # 1) Создаем QStackedWidget
         self.stacked_widget = QStackedWidget()
@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
         # Текст
         text_label = QLabel(f"Добро пожаловать {getpass.getuser()}!")
         text_label.setWordWrap(True)
-        text_label.setStyleSheet("font-size: 25px; color: #8BC540;")
+        text_label.setStyleSheet("font-size: 30px; color: #62961e;")
         # Растягиваем текст по вертикали при необходимости
         text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         left_layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
         # Текст
         text_label = QLabel("Програма для автоматизации\nпроцессов ИБ")
         text_label.setWordWrap(True)
-        text_label.setStyleSheet("font-size: 15px; color: #76787A;")
+        text_label.setStyleSheet("font-size: 25px; color: #76787A;")
         # Растягиваем текст по вертикали при необходимости
         text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         left_layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
@@ -71,32 +71,32 @@ class MainWindow(QMainWindow):
         btn_to_second = QPushButton(f"Лицензии")
         btn_to_second.clicked.connect(self.on_toggle)
         btn_to_second.setFixedSize(150, 50)
-        btn_to_second.setStyleSheet('color: rgb(139, 197, 064);')
+        btn_to_second.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
         btn_to_second.clicked.connect(self.go_to_second_page)
         left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
-        btn_to_second = QPushButton(f"СКЗИ")
-        btn_to_second.clicked.connect(self.on_toggle)
-        btn_to_second.setFixedSize(150, 50)
-        btn_to_second.clicked.connect(self.go_to_third_page)
-        btn_to_second.setStyleSheet('color: rgb(139, 197, 064);')
-        left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
-        btn_to_second = QPushButton(f"Страница 3")
-        btn_to_second.clicked.connect(self.on_toggle)
-        btn_to_second.setFixedSize(150, 50)
-        btn_to_second.setStyleSheet('color: rgb(139, 197, 064);')
-        btn_to_second.clicked.connect(self.go_to_fourth_page)
-        left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
-        btn_to_second = QPushButton(f"Страница 4")
-        btn_to_second.clicked.connect(self.on_toggle)
-        btn_to_second.setFixedSize(150, 50)
-        btn_to_second.setStyleSheet('color: rgb(139, 197, 064);')
-        btn_to_second.clicked.connect(self.go_to_five_page)
-        left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
+        btn_to_third = QPushButton(f"СКЗИ")
+        btn_to_third.clicked.connect(self.on_toggle)
+        btn_to_third.setFixedSize(150, 50)
+        btn_to_third.clicked.connect(self.go_to_third_page)
+        btn_to_third.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+        left_layout.addWidget(btn_to_third, alignment=Qt.AlignmentFlag.AlignLeft)
+        btn_to_fourth = QPushButton(f"Страница 3")
+        btn_to_fourth.clicked.connect(self.on_toggle)
+        btn_to_fourth.setFixedSize(150, 50)
+        btn_to_fourth.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+        btn_to_fourth.clicked.connect(self.go_to_fourth_page)
+        left_layout.addWidget(btn_to_fourth, alignment=Qt.AlignmentFlag.AlignLeft)
+        btn_to_five = QPushButton(f"Страница 4")
+        btn_to_five.clicked.connect(self.on_toggle)
+        btn_to_five.setFixedSize(150, 50)
+        btn_to_five.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+        btn_to_five.clicked.connect(self.go_to_five_page)
+        left_layout.addWidget(btn_to_five, alignment=Qt.AlignmentFlag.AlignLeft)
         main_layout.addLayout(left_layout)
 
         # Справа – SVG
         self.svg_widget = QSvgWidget("logo.svg")
-        self.svg_widget.setFixedSize(200, 200)
+        self.svg_widget.setFixedSize(300, 300)
         self.svg_widget.setAutoFillBackground(True)
         # Обёртка для SVG
         container = QWidget()
@@ -108,63 +108,56 @@ class MainWindow(QMainWindow):
         return page
 
     def create_page2(self) -> QWidget:
-        """Вторая страница с кнопкой «Назад» на первую."""
         page = QWidget()
         layout = QVBoxLayout(page)
 
-        EXCEL_FILE = 'Журналы2.xlsx'
-
-        # Существует ли файл Excel с данными
-        if not os.path.exists(EXCEL_FILE):
-            typeDoc = 1
-            docs = {}
-            if typeDoc == 1:
-                for i in range(0, 3):
-                    docs[f"document_{i}"] = getattr(Type1, f"document_{i}")
-
-            # Если не существует — создаём новую книгу Excel
-            wb = Workbook()
+        if os.path.exists('Журналы2.xlsx'):
+            wb = load_workbook('Журналы2.xlsx')
             ws = wb.active
-            ws.title = "Данные"
-            # Добавляем строку заголовков
-            ws.append(["ФИО", docs["document_0"], docs["document_1"], docs["document_2"]])
-            wb.save(EXCEL_FILE)
+            data = []
 
-        label = QLabel("Лицензии")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            # Считываем данные, принудительно задавая диапазон до 5 столбцов
+            for row in ws.iter_rows(min_row=1, max_col=4, values_only=True):
+                data.append(list(row))
 
-        table = "Журналы2.xlsx"
-        table = QTableWidget(self)  # Create a table
-        table.setColumnCount(3)  # Set three columns
-        table.setRowCount(1)  # and one row
+            if data:
+                headers = data[0]
+                # Если заголовков меньше 5, дополняем пустыми строками
+                if len(headers) < 4:
+                    headers += [""] * (4 - len(headers))
+                rows = data[1:]
 
-        # Set the table headers
-        table.setHorizontalHeaderLabels(["Header 1", "Header 2", "Header 3"])
+                table = QTableWidget()
+                table.setColumnCount(4)  # Жестко задаем 5 столбцов
+                table.setRowCount(len(rows))
+                table.setHorizontalHeaderLabels(
+                    [str(header) if header is not None else "" for header in headers]
+                )
 
-        # Set the tooltips to headings
-        table.horizontalHeaderItem(0).setToolTip("Column 1 ")
-        table.horizontalHeaderItem(1).setToolTip("Column 2 ")
-        table.horizontalHeaderItem(2).setToolTip("Column 3 ")
+                for row_index, row in enumerate(rows):
+                    # Если в строке меньше 5 ячеек, дополняем до 5 элементов
+                    if len(row) < 4:
+                        row += [None] * (4 - len(row))
+                    for col_index, cell in enumerate(row):
+                        item = QTableWidgetItem(str(cell) if cell is not None else "")
+                        table.setItem(row_index, col_index, item)
 
-        # Set the alignment to the headers
-        layout.addWidget(table)
-        layout.addWidget(table, alignment=Qt.AlignmentFlag.AlignCenter)
+                # Растягиваем столбцы, чтобы все 5 были видны равномерно
+                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                table.setMinimumSize(1000, 500)
+                layout.addWidget(table, alignment=Qt.AlignmentFlag.AlignCenter)
+        else:
+            QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            self.buttonBox = QDialogButtonBox(QBtn)
+            self.buttonBox.accepted.connect(self.accept)
+            self.buttonBox.rejected.connect(self.reject)
+            layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignLeft)
 
-        # Fill the first line
-        table.setItem(0, 0, QTableWidgetItem("Text in column 1"))
-        table.setItem(0, 1, QTableWidgetItem("Text in column 2"))
-        table.setItem(0, 2, QTableWidgetItem("Text in column 3"))
-
-        table.setMinimumSize(500, 400)
-
-        # Do the resize of the columns by content
-        table.resizeColumnsToContents()
-
-        btn_back = QPushButton("Назад на главную.")
+        btn_back = QPushButton("Назад")
         btn_back.clicked.connect(self.go_to_first_page)
-        layout.addWidget(label)
-        layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
         return page
+
 
     def create_page3(self) -> QWidget:
         """Третья страница"""
@@ -217,7 +210,6 @@ class MainWindow(QMainWindow):
     def on_toggle(self):
         """Метод, который вызывается при нажатии на кнопки с первой страницы."""
 
-
     def go_to_five_page(self):
         """Переключиться на вторую страницу (индекс 4)."""
         self.stacked_widget.setCurrentIndex(4)
@@ -238,26 +230,21 @@ class MainWindow(QMainWindow):
         """Вернуться на первую страницу (индекс 0)."""
         self.stacked_widget.setCurrentIndex(0)
 
+    def accept(self):
+        # Реализуйте нужное поведение, например, закрытие окна:
+        self.close()
 
+    def reject(self):
+        # Реализуйте нужное поведение, например, закрытие окна:
+        self.close()
 def main():
     app = QApplication(sys.argv)
 
-    # 1) Загружаем шрифт (вернётся индекс шрифта, или -1, если не удалось)
-    font_id = QFontDatabase.addApplicationFont("fonts/EtelkaLightPro.ttf")
-    if font_id < 0:
-        print("ERROR | Не удалось загрузить шрифт.")
-        print("Warned | Применяется системный шрифт.")
-    else:
-        # Узнаем имя семейства шрифта, чтобы применять его
-        font_families = QFontDatabase.applicationFontFamilies(font_id)
-        if font_families:
-            custom_font_family = font_families[0]  # Берём первое имя (иногда их может быть несколько)
 
-            # 2) Настраиваем шрифт для всего приложения (необязательно)
-            app.setFont(QFont(custom_font_family, 15))
 
     window = MainWindow()
     window.show()
+
     sys.exit(app.exec())
 
 
