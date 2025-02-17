@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
         text_label = QLabel("Програма для автоматизации\nпроцессов ИБ")
         text_label.setWordWrap(True)
         text_label.setStyleSheet("font-size: 25px; color: #76787A;")
-        # Растягиваем текст по вертикали при необходимост
+        # Растягиваем текст по вертикали при необходимости
         text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         left_layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
 
