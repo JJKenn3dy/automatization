@@ -25,6 +25,7 @@ from ui.page4 import create_page4
 from ui.page5 import create_page5
 from logic.file_manager import fileManager
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -91,5 +92,4 @@ class MainWindow(QMainWindow):
             self.textEdit.setPlainText(text)
 
     def reject(self):
-        # Реализуйте нужное поведение, например, закрытие окна:
         self.stacked_widget.setCurrentIndex(0)

@@ -9,4 +9,4 @@ def fileManager():
     file_dialog.setNameFilter("Excel Files (*.xlsx);;Text Files (*.txt);;Python Files (*.py)")
     if file_dialog.exec():
         selected_file = file_dialog.selectedFiles()[0]
-        os.rename(selected_file, 'Журналы2.xlsx')
+        os.rename(selected_file, 'Журналы.xlsx')

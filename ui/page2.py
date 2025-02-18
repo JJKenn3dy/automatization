@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QDialogButtonBox,
-    QHeaderView, QVBoxLayout
+    QHeaderView, QVBoxLayout, QLineEdit, QInputDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
 from openpyxl import Workbook, load_workbook  # Excel
@@ -12,8 +12,15 @@ def create_page2(self) -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
 
-    if os.path.exists('Журналы2.xlsx'):
-        wb = load_workbook('Журналы2.xlsx')
+    btn_back = QPushButton("Назад")
+    btn_back.clicked.connect(self.go_to_first_page)
+    layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
+    QInputDialog.getText(self, 'test', 'test: ')
+    return page
+
+
+"""    if os.path.exists('Журналы.xlsx'):
+        wb = load_workbook('Журналы.xlsx')
         ws = wb.active
         data = []
 
@@ -55,9 +62,4 @@ def create_page2(self) -> QWidget:
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignCenter)
-
-    btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_first_page)
-    layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
-    return page
+        layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignCenter)"""

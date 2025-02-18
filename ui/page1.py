@@ -33,7 +33,7 @@ def create_page1(self) -> QWidget:
     left_layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
 
     # Добавим несколько кнопок
-    btn_to_second = QPushButton(f"Лицензии")
+    btn_to_second = QPushButton(f"Регистрация")
     btn_to_second.clicked.connect(self.on_toggle)
     btn_to_second.setFixedSize(150, 50)
     btn_to_second.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
