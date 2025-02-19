@@ -6,16 +6,21 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
 from openpyxl import Workbook, load_workbook  # Excel
+from logic.database import database
 
 
 def create_page2(self) -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
 
+    database(self)
+
     btn_back = QPushButton("Назад")
     btn_back.clicked.connect(self.go_to_first_page)
+
     layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
-    QInputDialog.getText(self, 'test', 'test: ')
+
+
     return page
 
 

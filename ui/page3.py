@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (
     QWidget,
-    QLabel, QPushButton, QCalendarWidget, QVBoxLayout
+    QLabel, QPushButton, QCalendarWidget, QVBoxLayout, QInputDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
+from PyQt6 import QtWidgets
 
 
 def create_page3(self) -> QWidget:
@@ -19,9 +20,8 @@ def create_page3(self) -> QWidget:
     calendar.setGridVisible(True)
     layout.addWidget(calendar)
 
-    self.lbl = QLabel(calendar.selectedDate().toString())
-    layout.addWidget(self.lbl)
-    calendar.clicked[QDate].connect(self.showDate)
+    # Кнопка для вызова диалога
+
 
     # Метка для отображения выбранной даты
     self.cal_label = QLabel()
@@ -30,10 +30,11 @@ def create_page3(self) -> QWidget:
     layout.addWidget(self.cal_label)
 
     # При клике обновляем метку
-    calendar.clicked[QDate].connect(self.showDate)
+    calendar.clicked.connect(lambda date: self.cal_label.setText(date.toString()))
 
-    btn_back = QPushButton("Назад на главную.")
+    btn_back = QPushButton("Назад на главную")
     btn_back.clicked.connect(self.go_to_first_page)
     layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
 
     return page
+

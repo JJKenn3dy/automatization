@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QSizePolicy,
     QLabel, QPushButton, QStackedWidget,
     QTableWidget, QTableWidgetItem, QSystemTrayIcon, QStyle, QDialog, QDialogButtonBox,
-    QHeaderView, QFileDialog, QCalendarWidget, QVBoxLayout
+    QHeaderView, QFileDialog, QCalendarWidget, QVBoxLayout, QInputDialog
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt, QTimer, QDate
@@ -17,7 +17,7 @@ from openpyxl.styles import PatternFill, Font  # Стилизация ячеек
 from documents import Type1
 import subprocess
 from PyQt6 import QtWidgets
-
+import sqlite3
 from ui.page1 import create_page1
 from ui.page2 import create_page2
 from ui.page3 import create_page3
@@ -93,3 +93,14 @@ class MainWindow(QMainWindow):
 
     def reject(self):
         self.stacked_widget.setCurrentIndex(0)
+
+    def show_name_dialog(self):
+        """Показывает диалог ввода имени по требованию пользователя"""
+        name, done = QInputDialog.getText(
+            self,
+            'Input Dialog',
+            'Enter your name:'
+        )
+        if done and name:
+            # Сохраняем или обрабатываем имя
+            print(f"Введенное имя: {name}")
