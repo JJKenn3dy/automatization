@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QDialogButtonBox,
-    QHeaderView, QVBoxLayout, QLineEdit, QInputDialog
+    QHeaderView, QVBoxLayout, QLineEdit, QInputDialog, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
 from openpyxl import Workbook, load_workbook  # Excel
@@ -14,6 +14,49 @@ def create_page2(self) -> QWidget:
     layout = QVBoxLayout(page)
 
     database(self)
+
+    # Текст
+    text_label = QLabel("Програма для автоматизации\nпроцессов ИБ")
+    text_label.setWordWrap(True)
+    text_label.setStyleSheet("font-size: 25px; color: #76787A;")
+    # Растягиваем текст по вертикали при необходимости
+    text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
+
+    btn_input = QPushButton("Лицензии")
+    btn_input.clicked.connect(self.go_to_six_page)
+    layout.addWidget(btn_input)
+    btn_input.setFixedSize(150, 50)
+    btn_input.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    layout.addWidget(btn_input, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    btn_input2 = QPushButton("СКЗИ")
+    btn_input2.clicked.connect(self.go_to_seven_page)
+    layout.addWidget(btn_input2)
+    btn_input2.setFixedSize(150, 50)
+    btn_input2.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    layout.addWidget(btn_input2, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    btn_input3 = QPushButton("Ключи УКЭП")
+    btn_input3.clicked.connect(self.go_to_eight_page)
+    layout.addWidget(btn_input3)
+    btn_input3.setFixedSize(150, 50)
+    btn_input3.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    layout.addWidget(btn_input3, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    btn_input4 = QPushButton("КБР")
+    btn_input4.clicked.connect(self.go_to_nine_page)
+    layout.addWidget(btn_input4)
+    btn_input4.setFixedSize(150, 50)
+    btn_input4.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    layout.addWidget(btn_input4, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    btn_input5 = QPushButton("TLS")
+    btn_input5.clicked.connect(self.go_to_ten_page)
+    layout.addWidget(btn_input5)
+    btn_input5.setFixedSize(150, 50)
+    btn_input5.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    layout.addWidget(btn_input5, alignment=Qt.AlignmentFlag.AlignCenter)
 
     btn_back = QPushButton("Назад")
     btn_back.clicked.connect(self.go_to_first_page)

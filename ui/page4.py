@@ -9,9 +9,6 @@ def create_page4(self) -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
 
-    btn_input = QPushButton("Ввести имя")
-    btn_input.clicked.connect(self.show_name_dialog)
-    layout.addWidget(btn_input)
 
     btn_back = QPushButton("Назад на главную.")
     btn_back.clicked.connect(self.go_to_first_page)
