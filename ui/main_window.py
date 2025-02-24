@@ -28,7 +28,9 @@ from ui.page7 import create_page7
 from ui.page8 import create_page8
 from ui.page9 import create_page9
 from ui.page10 import create_page10
+from ui.page6 import license2
 from logic.file_manager import fileManager
+from logic.db import enter_fio
 
 
 class MainWindow(QMainWindow):
@@ -52,6 +54,7 @@ class MainWindow(QMainWindow):
         self.page8 = create_page8(self)
         self.page9 = create_page9(self)
         self.page10 = create_page10(self)
+        self.license2 = license2(self)
 
         self.stacked_widget.addWidget(self.page1)  # Индекс 0
         self.stacked_widget.addWidget(self.page2)  # Индекс 1
@@ -63,9 +66,14 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.page8)  # Индекс 7
         self.stacked_widget.addWidget(self.page9)  # Индекс 8
         self.stacked_widget.addWidget(self.page10)  # Индекс 9
+        self.stacked_widget.addWidget(self.license2)  # Индекс 10
 
         # По умолчанию показываем первую страницу
         self.stacked_widget.setCurrentIndex(0)
+
+    def getandgo(self):
+        text = self.get_text()
+        self.go_to_license_2()
 
     def showDate(self, date: QDate):
         """Обновляем метку выбранной даты."""
@@ -73,6 +81,10 @@ class MainWindow(QMainWindow):
 
     def on_toggle(self):
         """Метод, который вызывается при нажатии на кнопки с первой страницы."""
+
+    def go_to_license_2(self):
+        """Переключиться на 10 страницу (индекс 10)."""
+        self.stacked_widget.setCurrentIndex(10)
 
     def go_to_ten_page(self):
         """Переключиться на 10 страницу (индекс 9)."""
@@ -139,3 +151,9 @@ class MainWindow(QMainWindow):
         if done and name:
             # Сохраняем или обрабатываем имя
             print(f"Введенное имя: {name}")
+
+    def get_text(self):
+        text = self.input_field.text()
+        enter_fio(text)
+
+

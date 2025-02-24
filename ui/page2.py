@@ -6,22 +6,22 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
 from openpyxl import Workbook, load_workbook  # Excel
-from logic.database import database
+from logic.db import enterData
 
 
 def create_page2(self) -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
 
-    database(self)
+    enterData(self)
 
     # Текст
-    text_label = QLabel("Програма для автоматизации\nпроцессов ИБ")
+    text_label = QLabel("Програма для автоматизации процессов ИБ")
     text_label.setWordWrap(True)
     text_label.setStyleSheet("font-size: 25px; color: #76787A;")
     # Растягиваем текст по вертикали при необходимости
     text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-    layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignTop)
+    layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
     btn_input = QPushButton("Лицензии")
     btn_input.clicked.connect(self.go_to_six_page)
