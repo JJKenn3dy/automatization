@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QMessageBox
 from docx import Document
 from docx.shared import Inches
 from docx import Document
-
+from logic.db import
 
 def pdf_check(self):
     try:
@@ -35,6 +35,6 @@ def getText(filename):
     fullText = []
     for para in doc.paragraphs:
         fullText.append(para.text)
-        print(para.text)
+
 
     return '\n'.join(fullText)

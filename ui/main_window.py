@@ -1,22 +1,14 @@
-import sys
-import os
-import getpass
-import PyQt6
-from PyPDF2 import PdfReader
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QSizePolicy,
     QLabel, QPushButton, QStackedWidget,
-    QTableWidget, QTableWidgetItem, QSystemTrayIcon, QStyle, QDialog, QDialogButtonBox,
-    QHeaderView, QFileDialog, QCalendarWidget, QVBoxLayout, QInputDialog, QMessageBox
+    QInputDialog, QMessageBox
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt, QTimer, QDate
 from PyQt6.QtGui import QFont, QFontDatabase, QIcon
-from openpyxl import Workbook, load_workbook  # Excel
-from openpyxl.chart import layout
-from openpyxl.styles import PatternFill, Font  # Стилизация ячеек
-from documents import Type1
+
 import subprocess
 from PyQt6 import QtWidgets
 import sqlite3

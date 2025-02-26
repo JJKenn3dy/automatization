@@ -170,6 +170,32 @@ def enter_variant(variant):
 
 
 
+def keys(text):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True)
+    except mariadb.Error as e:
+        print(f"Error connecting to the database: {e}")
+        sys.exit(1)
+
+    cur.execute("""
+                    CREATE TABLE IF NOT EXISTS KEYS (
+                        ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        number TINYTEXT,
+                        date DATE,
+                        scope TINYINT(1),
+                    )
+                """)
+
+    with conn.cursor() as cursor:
+        cursor.execute(insert_movies_query)
+        conn.commit()
+
 
 
 
