@@ -2,17 +2,19 @@ import sys
 import os
 import getpass
 import PyQt6
+from PyPDF2 import PdfReader
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QSizePolicy,
     QLabel, QPushButton, QStackedWidget,
     QTableWidget, QTableWidgetItem, QSystemTrayIcon, QStyle, QDialog, QDialogButtonBox,
-    QHeaderView, QFileDialog, QCalendarWidget, QVBoxLayout, QInputDialog
+    QHeaderView, QFileDialog, QCalendarWidget, QVBoxLayout, QInputDialog, QMessageBox
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt, QTimer, QDate
 from PyQt6.QtGui import QFont, QFontDatabase, QIcon
 from openpyxl import Workbook, load_workbook  # Excel
+from openpyxl.chart import layout
 from openpyxl.styles import PatternFill, Font  # Стилизация ячеек
 from documents import Type1
 import subprocess
@@ -23,7 +25,7 @@ from ui.page2 import create_page2
 from ui.page3 import create_page3
 from ui.page4 import create_page4
 from ui.page5 import create_page5
-from ui.page6 import create_page6
+from ui.page6 import create_page6, license3
 from ui.page7 import create_page7
 from ui.page8 import create_page8
 from ui.page9 import create_page9
@@ -31,6 +33,8 @@ from ui.page10 import create_page10
 from ui.page6 import license2
 from logic.file_manager import fileManager
 from logic.db import enter_fio
+from logic.db import enter_variant
+from logic.readwritepdf import pdf_check
 
 
 class MainWindow(QMainWindow):
@@ -55,6 +59,7 @@ class MainWindow(QMainWindow):
         self.page9 = create_page9(self)
         self.page10 = create_page10(self)
         self.license2 = license2(self)
+        self.license3 = license3(self)
 
         self.stacked_widget.addWidget(self.page1)  # Индекс 0
         self.stacked_widget.addWidget(self.page2)  # Индекс 1
@@ -67,13 +72,37 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.page9)  # Индекс 8
         self.stacked_widget.addWidget(self.page10)  # Индекс 9
         self.stacked_widget.addWidget(self.license2)  # Индекс 10
+        self.stacked_widget.addWidget(self.license3)  # Индекс 11
 
         # По умолчанию показываем первую страницу
         self.stacked_widget.setCurrentIndex(0)
 
+    def pdf_check(self):
+        pdf_check(self)
+
     def getandgo(self):
         text = self.get_text()
         self.go_to_license_2()
+
+    def getandgo2(self):
+        self.on_radio_selected()
+        self.save_selection()
+        self.go_to_license_3()
+
+    def on_radio_selected(self):
+        """Вызывается при выборе варианта, но не сохраняет окончательный выбор"""
+        sender = self.sender()
+        if sender.isChecked():
+            self.temp_selection = sender.text()
+
+    def save_selection(self):
+        """Сохраняет окончательный выбор только при нажатии OK"""
+        if hasattr(self, 'temp_selection'):
+            self.selected_option = self.temp_selection
+            variant = int(self.selected_option[0])
+            enter_variant(variant)
+        else:
+            QMessageBox.warning(self, "Ошибка", "Вы не выбрали вариант!")
 
     def showDate(self, date: QDate):
         """Обновляем метку выбранной даты."""
@@ -81,6 +110,10 @@ class MainWindow(QMainWindow):
 
     def on_toggle(self):
         """Метод, который вызывается при нажатии на кнопки с первой страницы."""
+
+    def go_to_license_3(self):
+        """Переключиться на 10 страницу (индекс 10)."""
+        self.stacked_widget.setCurrentIndex(11)
 
     def go_to_license_2(self):
         """Переключиться на 10 страницу (индекс 10)."""

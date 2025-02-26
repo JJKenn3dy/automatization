@@ -23,7 +23,7 @@ try:
     cur.execute("""
         CREATE TABLE IF NOT EXISTS License (
             ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            name_of_soft TINYINT,
+            name_of_soft TINYINT(100),
             number_lic TINYTEXT,
             scop_using TEXT,
             fullname TINYTEXT,
@@ -132,12 +132,41 @@ def enter_fio (text):
     cur = conn.cursor()
 
     insert_movies_query = f"""
-    INSERT INTO License (fullname)
-    VALUES ('{text}');
+    UPDATE License
+    SET fullname = '{text}'
+    ORDER BY id DESC
+    LIMIT 1;
     """
     with conn.cursor() as cursor:
         cursor.execute(insert_movies_query)
         conn.commit()
+
+
+def enter_variant(variant):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True)
+    except mariadb.Error as e:
+        print(f"Error connecting to the database: {e}")
+        sys.exit(1)
+
+    cur = conn.cursor()
+
+    insert_movies_query = f"""
+       UPDATE License
+       SET name_of_soft = '{variant}'
+       ORDER BY id DESC
+       LIMIT 1;
+       """
+    with conn.cursor() as cursor:
+        cursor.execute(insert_movies_query)
+        conn.commit()
+
 
 
 

@@ -26,6 +26,7 @@ def create_page6(self) -> QWidget:
     layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
     self.input_field = QLineEdit(self)
+
     self.input_field.setPlaceholderText("Введите ФИО: ")
     self.input_field.setFixedSize(550, 50)
     self.input_field.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
@@ -72,12 +73,11 @@ def license2(self) -> QWidget:
     }
     """
     # Кнопки для левой колонки
-    rb1 = QRadioButton("Вариант 1")
+    rb1 = QRadioButton("1. Вариант")
     rb1.setStyleSheet(style_sheet)
-    rb2 = QRadioButton("Вариант 2")
+    rb2 = QRadioButton("2. Вариант")
     rb2.setStyleSheet(style_sheet)
-
-    rb3 = QRadioButton("Вариант 3")
+    rb3 = QRadioButton("3. Вариант")
     rb3.setStyleSheet(style_sheet)
 
     left_layout.addWidget(rb1)
@@ -86,16 +86,26 @@ def license2(self) -> QWidget:
     left_layout.setContentsMargins(200, 0, 200, 0)
 
     # Кнопки для правой колонки
-    rb4 = QRadioButton("Вариант 4")
+    rb4 = QRadioButton("4. Вариант")
     rb4.setStyleSheet(style_sheet)
-    rb5 = QRadioButton("Вариант 5")
+    rb5 = QRadioButton("5. Вариант")
     rb5.setStyleSheet(style_sheet)
-    rb6 = QRadioButton("Вариант 6")
+    rb6 = QRadioButton("6. Вариант")
     rb6.setStyleSheet(style_sheet)
     right_layout.addWidget(rb4)
     right_layout.addWidget(rb5)
     right_layout.addWidget(rb6)
     right_layout.setContentsMargins(200, 0, 200, 0)
+    self.result_label = QLabel('', self)
+
+    self.selected_option = None  # Переменная для хранения выбора
+    rb1.toggled.connect(self.on_radio_selected)
+    rb2.toggled.connect(self.on_radio_selected)
+    rb3.toggled.connect(self.on_radio_selected)
+    rb4.toggled.connect(self.on_radio_selected)
+    rb5.toggled.connect(self.on_radio_selected)
+    rb6.toggled.connect(self.on_radio_selected)
+
 
     # Объединяем два вертикальных лэйаута в горизонтальный
     h_layout = QHBoxLayout()
@@ -105,8 +115,13 @@ def license2(self) -> QWidget:
     # Добавляем горизонтальный лэйаут в основной вертикальный лэйаут
     layout.addLayout(h_layout)
 
+    # Кнопка подтверждения выбора
+    ok_button = QPushButton("OK")
+    ok_button.clicked.connect(self.getandgo2)
+    layout.addWidget(ok_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
     btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_second_page)
+    btn_back.clicked.connect(self.go_to_six_page)
     layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
 
     return page
@@ -121,8 +136,10 @@ def license3(self) -> QWidget:
     text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
+    self.pdf_check()
+
     btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_second_page)
+    btn_back.clicked.connect(self.go_to_license_2)
     layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
     return page
 
