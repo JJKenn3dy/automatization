@@ -4,7 +4,6 @@ from PyQt6.QtWidgets import QMessageBox
 from docx import Document
 from docx.shared import Inches
 from docx import Document
-from logic.db import
 
 def pdf_check(self):
     try:
