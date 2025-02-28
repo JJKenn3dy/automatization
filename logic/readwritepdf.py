@@ -5,28 +5,29 @@ from docx import Document
 from docx.shared import Inches
 from docx import Document
 
+from logic.db import update_keys_table
+
+
 def pdf_check(self):
     try:
         # Открытие PDF-файла
         with pdfplumber.open("test.pdf") as pdf:
-
-            # Извлечение текста из PDF
             text = ""
             for page in pdf.pages:
-                text += page.extract_text()
-
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
         # Создание нового документа Word
         document = Document()
-
-        # Добавление абзаца в Word, содержащего текст
         document.add_paragraph(text)
-
-        # Сохранение документа Word
         document.save("output.docx")
-
-        getText("output.docx")
+        # Получаем текст из созданного документа
+        full_text = getText("output.docx")
+        # Вставляем каждую строку как отдельную запись в таблицу keying
+        update_keys_table(full_text)
     except FileNotFoundError:
         QMessageBox.warning(self, "Ошибка", "PDF с ключами не был найден")
+
 
 
 def getText(filename):

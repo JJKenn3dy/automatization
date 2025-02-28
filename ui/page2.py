@@ -6,14 +6,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QDate
 from openpyxl import Workbook, load_workbook  # Excel
-from logic.db import enterData
+import getpass
+
 
 
 def create_page2(self) -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
 
-    enterData(self)
+
 
     # Текст
     text_label = QLabel("Програма для автоматизации процессов ИБ")

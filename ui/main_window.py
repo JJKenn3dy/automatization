@@ -1,4 +1,4 @@
-
+import mariadb
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QSizePolicy,
@@ -17,14 +17,13 @@ from ui.page2 import create_page2
 from ui.page3 import create_page3
 from ui.page4 import create_page4
 from ui.page5 import create_page5
-from ui.page6 import create_page6, license3
+from ui.page6 import create_page6
 from ui.page7 import create_page7
 from ui.page8 import create_page8
 from ui.page9 import create_page9
 from ui.page10 import create_page10
-from ui.page6 import license2
 from logic.file_manager import fileManager
-from logic.db import enter_fio
+from logic.db import enter_fio, create_tables
 from logic.db import enter_variant
 from logic.readwritepdf import pdf_check
 
@@ -50,8 +49,6 @@ class MainWindow(QMainWindow):
         self.page8 = create_page8(self)
         self.page9 = create_page9(self)
         self.page10 = create_page10(self)
-        self.license2 = license2(self)
-        self.license3 = license3(self)
 
         self.stacked_widget.addWidget(self.page1)  # Индекс 0
         self.stacked_widget.addWidget(self.page2)  # Индекс 1
@@ -63,38 +60,58 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.page8)  # Индекс 7
         self.stacked_widget.addWidget(self.page9)  # Индекс 8
         self.stacked_widget.addWidget(self.page10)  # Индекс 9
-        self.stacked_widget.addWidget(self.license2)  # Индекс 10
-        self.stacked_widget.addWidget(self.license3)  # Индекс 11
 
         # По умолчанию показываем первую страницу
         self.stacked_widget.setCurrentIndex(0)
+
+    create_tables()
 
     def pdf_check(self):
         pdf_check(self)
 
     def getandgo(self):
-        text = self.get_text()
+        text = self.input_field.text()
+        enter_fio(text)
         self.go_to_license_2()
 
     def getandgo2(self):
-        self.on_radio_selected()
-        self.save_selection()
+        checked_button = self.radio_group.checkedButton()
+        if not checked_button:
+            QMessageBox.warning(self, "Ошибка", "Вы не выбрали вариант!")
+            return
+        self.selected_option = checked_button.text()
+        try:
+            variant = int(self.selected_option[0])
+        except ValueError:
+            QMessageBox.warning(self, "Ошибка", "Неверный формат выбранного варианта!")
+            return
+        enter_variant(variant)
         self.go_to_license_3()
 
     def on_radio_selected(self):
-        """Вызывается при выборе варианта, но не сохраняет окончательный выбор"""
         sender = self.sender()
         if sender.isChecked():
             self.temp_selection = sender.text()
+
+        """Вызывается при выборе варианта, но не сохраняет окончательный выбор"""
+        """sender = self.sender()
+        if sender.isChecked():
+            self.temp_selection = sender.text()"""
 
     def save_selection(self):
         """Сохраняет окончательный выбор только при нажатии OK"""
         if hasattr(self, 'temp_selection'):
             self.selected_option = self.temp_selection
-            variant = int(self.selected_option[0])
+            try:
+                variant = int(self.selected_option[0])
+            except ValueError:
+                QMessageBox.warning(self, "Ошибка", "Неверный формат варианта!")
+                return False
             enter_variant(variant)
+            return True
         else:
             QMessageBox.warning(self, "Ошибка", "Вы не выбрали вариант!")
+            return False
 
     def showDate(self, date: QDate):
         """Обновляем метку выбранной даты."""
@@ -103,8 +120,12 @@ class MainWindow(QMainWindow):
     def on_toggle(self):
         """Метод, который вызывается при нажатии на кнопки с первой страницы."""
 
+    def create_page11(self):
+        """Переключиться на 10 страницу (индекс 12)."""
+        self.stacked_widget.setCurrentIndex(12)
+
     def go_to_license_3(self):
-        """Переключиться на 10 страницу (индекс 10)."""
+        """Переключиться на 10 страницу (индекс 11)."""
         self.stacked_widget.setCurrentIndex(11)
 
     def go_to_license_2(self):
@@ -147,6 +168,31 @@ class MainWindow(QMainWindow):
         """Переключиться на 2 страницу (индекс 1)."""
         self.stacked_widget.setCurrentIndex(1)
 
+    def get_license_key(self):
+
+            conn = mariadb.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                autocommit=True
+            )
+            cur = conn.cursor()
+            # Предполагаем, что в таблице License есть столбцы number (ключ) и status (0 - свободен, 1 - занят)
+            cur.execute("SELECT number FROM keying WHERE status IS NULL OR status = ''")
+            result = cur.fetchone()
+            if result is None:
+                key_value = None
+            else:
+                key_value = result[0]
+                insert_query = f"UPDATE keying SET status = 1 WHERE number = (?)"
+                cur.execute(insert_query, result)
+
+            return key_value
+
+
+
     def go_to_first_page(self):
         """Вернуться на 1 страницу (индекс 0)."""
         self.stacked_widget.setCurrentIndex(0)
@@ -166,19 +212,8 @@ class MainWindow(QMainWindow):
     def reject(self):
         self.stacked_widget.setCurrentIndex(0)
 
-    def show_name_dialog(self):
-        """Показывает диалог ввода имени по требованию пользователя"""
-        name, done = QInputDialog.getText(
-            self,
-            'Input Dialog',
-            'Enter your name:'
-        )
-        if done and name:
-            # Сохраняем или обрабатываем имя
-            print(f"Введенное имя: {name}")
 
-    def get_text(self):
-        text = self.input_field.text()
-        enter_fio(text)
+
+
 
 

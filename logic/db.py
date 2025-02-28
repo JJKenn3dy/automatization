@@ -8,35 +8,8 @@ def enterData():
     """Retrieves the list of contacts from the database and prints to stdout"""
     # Initialize Variables
     # List Contacts
+    print(f"Ошибка обновления ключей:")
 
-    try:
-            conn = mariadb.connect(
-                host="localhost",
-                port=3306,
-                user="newuser",
-                password="852456qaz",
-                database="IB",
-                autocommit=True
-            )
-            cur = conn.cursor()
-
-            doc = docx.Document("output.docx")
-            fullText = "\n".join(para.text for para in doc.paragraphs)
-
-            update_query = """
-                UPDATE keying
-                SET number = ?
-                ORDER BY id DESC
-                LIMIT 1;
-            """
-            cur.execute(update_query, (fullText,))
-            conn.commit()
-            conn.close()
-
-            return fullText
-    except mariadb.Error as e:
-        print(f"Ошибка обновления ключей: {e}")
-        sys.exit(1)
 
 
 def create_tables():
@@ -135,13 +108,21 @@ def create_tables():
                     resolution TINYINT(1),
                     additional TEXT
                 )
-                """
+                """,
+            """
+               CREATE TABLE IF NOT EXISTS keying (
+               ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+               number TEXT,
+               date DATE,
+               status BOOLEAN
+               )
+               """
             ]
 
         for query in table_queries:
             cur.execute(query)
             conn.commit()
-            conn.close()
+        conn.close()
 
     except mariadb.Error as e:
         print(f"Ошибка при создании таблиц: {e}")
@@ -159,14 +140,22 @@ def update_license(field, value):
             autocommit=True
         )
         cur = conn.cursor()
-
-        update_query = f"""
-        UPDATE License
-        SET {field} = ?
-        ORDER BY id DESC
-        LIMIT 1;
-        """
-        cur.execute(update_query, (value,))
+        # Проверяем, есть ли записи в таблице License
+        cur.execute("SELECT COUNT(*) FROM License")
+        count = cur.fetchone()[0]
+        if count == 0:
+            # Если таблица пуста, вставляем новую запись с указанным полем
+            insert_query = f"INSERT INTO License ({field}) VALUES (?)"
+            cur.execute(insert_query, (value,))
+        else:
+            # Если запись уже есть, обновляем последнюю запись
+            update_query = f"""
+            UPDATE License
+            SET {field} = ?
+            ORDER BY id DESC
+            LIMIT 1;
+            """
+            cur.execute(update_query, (value,))
         conn.commit()
         conn.close()
     except mariadb.Error as e:
@@ -177,11 +166,12 @@ def enter_fio(text):
     update_license("fullname", text)
 
 
+
 def enter_variant(variant):
     update_license("name_of_soft", variant)
 
 
-def create_keys_table():
+def update_keys_table(keys_text):
     try:
         conn = mariadb.connect(
             host="localhost",
@@ -192,19 +182,22 @@ def create_keys_table():
             autocommit=True
         )
         cur = conn.cursor()
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS keying (
-                ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                number TEXT,
-                date DATE
-            )
-        """)
-        conn.commit()
-        conn.close()
+        # Разбиваем текст на отдельные строки
+        # Проверяем, есть ли записи в таблице License
+        cur.execute("SELECT COUNT(*) FROM keying")
+        count = cur.fetchone()[0]
+        if count == 0:
+            lines = keys_text.splitlines()
+            for line in lines:
+                # Если строка не пустая, вставляем её в таблицу
+                if line.strip():
+                    insert_query = "INSERT INTO keying (number) VALUES (?)"
+                    cur.execute(insert_query, (line.strip(),))
+            conn.commit()
+            conn.close()
     except mariadb.Error as e:
-        print(f"Ошибка при создании таблицы ключей: {e}")
-        sys.exit(1)
+        print(f"Ошибка обновления ключей: {e}")
+
 
 
 
