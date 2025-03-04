@@ -98,6 +98,13 @@ class MainWindow(QMainWindow):
         if sender.isChecked():
             self.temp_selection = sender.text()"""
 
+    def update_extra_fields_visibility(self):
+        """
+        Если нажата радиокнопка "Изьято", то показываем блок
+        'Дополнительные сведения'. Иначе скрываем.
+        """
+        self.extra_group.setVisible(self.rb_taken.isChecked())
+
     def save_selection(self):
         """Сохраняет окончательный выбор только при нажатии OK"""
         if hasattr(self, 'temp_selection'):
