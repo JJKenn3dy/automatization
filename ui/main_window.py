@@ -66,6 +66,122 @@ class MainWindow(QMainWindow):
 
     create_tables()
 
+    def save_values8(self):
+        status_cb = self.status_cb.currentText()
+        nositel_type_cb = self.nositel_type_cb.currentText()
+        serial_le = self.serial_le.text()
+        cert_serial_le = self.cert_serial_le.text()
+        issuer_cb = self.issuer_cb.currentText()
+        scope_cb = self.scope_cb.currentText()
+        owner_cb = self.owner_cb.currentText()
+        vip_cb = self.vip_cb.currentText()
+        dateedit1 = self.dateedit1.date()
+        dateedit2 = self.dateedit2.date()
+        additional_cb = self.additional_cb.currentText()
+        request_let = self.request_let.text()
+        note_le = self.note_le.text()
+
+        # Преобразуем в строку в формате "день.месяц.год"
+        date_str = dateedit1.toString("dd.MM.yyyy")
+        dateedit2 = dateedit2.toString("dd.MM.yyyy")
+
+
+        # Можно собрать значения в словарь для дальнейшей обработки
+        data = {
+            "status_cb": status_cb,
+            "nositel_type_cb": nositel_type_cb,
+            "serial_le": serial_le,
+            "cert_serial_le": cert_serial_le,
+            "issuer_cb": issuer_cb,
+            "scope_cb": scope_cb,
+            "owner_cb": owner_cb,
+            "dateedit1": date_str,
+            "dateedit2": vip_cb,
+            "additional_cb": additional_cb,
+            "request_let": request_let,
+            "note_le": note_le,
+
+        }
+        print("Сохранённые данные:", data)
+        # Здесь можно добавить дополнительную логику для работы с данными
+
+    def save_values7(self):
+        skzi_value = self.skzi_name_cb.currentText()
+        skzi_type = self.skzi_type.currentText()
+        skzi_version = self.skzi_version_cb.currentText()
+        current_date = self.dateedit.date()
+        doc_info_le = self.doc_info_le.text()
+        owner_fio_le = self.owner_fio_le.text()
+        reg_number_le = self.reg_number_le.text()
+        from_whom_cb = self.from_whom_cb.currentText()
+        note_cb = self.note_cb.currentText()
+        additional_le = self.additional_le.text()
+        certnum_le = self.certnum_le.text()
+        dateedit2 = self.dateedit2.date()
+        # Преобразуем в строку в формате "день.месяц.год"
+        date_str = current_date.toString("dd.MM.yyyy")
+        dateedit2 = current_date.toString("dd.MM.yyyy")
+
+
+        # Можно собрать значения в словарь для дальнейшей обработки
+        data = {
+            "skzi_name": skzi_value,
+            "skzi_type": skzi_type,
+            "skzi_version": skzi_version,
+            "date": date_str,
+            "doc_info_le": doc_info_le,
+            "owner_fio_le": owner_fio_le,
+            "reg_number_le": reg_number_le,
+            "from_whom_cb": from_whom_cb,
+            "note_cb": note_cb,
+            "additional_le": additional_le,
+            "certnum_le": certnum_le,
+            "dateedit2": dateedit2,
+        }
+        print("Сохранённые данные:", data)
+        # Здесь можно добавить дополнительную логику для работы с данными
+
+    def save_values6(self):
+        enter_number = self.enter_number.text()
+        combobox = self.combobox.currentText()
+        enter_key = self.enter_key.text()
+        scope = self.scope.currentText()
+        input_fio_user = self.input_fio_user.text()
+        dateedit = self.dateedit.date()
+        user = self.user.text()
+        # Определяем, какая радиокнопка выбрана
+        if self.rb_issued.isChecked():
+            license_status = "Выдано"
+        elif self.rb_installed.isChecked():
+            license_status = "Установлено"
+        elif self.rb_taken.isChecked():
+            license_status = "Изъято"
+        else:
+            license_status = "Не выбрано"  # Если ни одна не выбрана
+
+        input_mark = self.input_mark.text()
+        input_date = self.input_date.text()
+        # Преобразуем в строку в формате "день.месяц.год"
+        dateedit = dateedit.toString("dd.MM.yyyy")
+
+        # Можно собрать значения в словарь для дальнейшей обработки
+        data = {
+            "enter_number": enter_number,
+            "combobox": combobox,
+            "enter_key": enter_key,
+            "scope": scope,
+            "input_fio_user": input_fio_user,
+            "dateedit": dateedit,
+            "user": user,
+            "license_status": license_status,
+
+            "input_mark": input_mark,
+            "input_date": input_date,
+            }
+        print("Сохранённые данные:", data)
+        # Здесь можно добавить дополнительную логику для работы с данными
+
+
     def pdf_check(self):
         pdf_check(self)
 

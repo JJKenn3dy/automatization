@@ -1,6 +1,6 @@
 from datetime import datetime
 from PyQt6 import QtWidgets
-from PyQt6.QtGui import QShortcut, QKeySequence
+from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
     QComboBox, QSizePolicy, QGroupBox, QFormLayout
@@ -36,52 +36,106 @@ def create_page8(self) -> QWidget:
     self.status_cb.setEditable(False)
     self.status_cb.setCurrentText("Статус да/нет")
     self.status_cb.addItems(["Да", "Нет"])
+    line_edit = self.status_cb.lineEdit()
     left_form.addRow(QLabel("Статус:"), self.status_cb)
 
     # Тип носителя
     self.nositel_type_cb = QComboBox(self)
     self.nositel_type_cb.setEditable(True)
-    self.nositel_type_cb.setCurrentText("Тип носителя")
+    line_edit = self.nositel_type_cb.lineEdit()
+    line_edit.setPlaceholderText("Тип носителя")
+    # Создаём палитру
+    palette = line_edit.palette()
+    # Цвет обычного текста (чёрный)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.nositel_type_cb.addItem(option)
+    self.nositel_type_cb.clearEditText()
+
     left_form.addRow(QLabel("Тип носителя:"), self.nositel_type_cb)
 
     # Серийный номер
     self.serial_le = QLineEdit(self)
     self.serial_le.setPlaceholderText("Серийный номер:")
-    self.serial_le.setMinimumSize(250, 40)
-    self.serial_le.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    # Создаём палитру
+    palette = self.serial_le.palette()
+    # Цвет обычного текста (белый)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    self.serial_le.setPalette(palette)
     left_form.addRow(QLabel("Серийный номер:"), self.serial_le)
 
     # Серийный номер сертификата
     self.cert_serial_le = QLineEdit(self)
     self.cert_serial_le.setPlaceholderText("Серийный номер сертификата:")
-    self.cert_serial_le.setMinimumSize(250, 40)
-    self.cert_serial_le.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    # Создаём палитру
+    palette = self.cert_serial_le.palette()
+    # Цвет обычного текста (белый)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    self.cert_serial_le.setPalette(palette)
     left_form.addRow(QLabel("Сер. номер сертификата:"), self.cert_serial_le)
 
     # Выдавший УЦ
     self.issuer_cb = QComboBox(self)
     self.issuer_cb.setEditable(True)
-    self.issuer_cb.setCurrentText("Выдавший УЦ")
+    line_edit = self.issuer_cb.lineEdit()
+    line_edit.setPlaceholderText("УЦ: ")
+    # Создаём палитру
+    palette = line_edit.palette()
+    # Цвет обычного текста (чёрный)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.issuer_cb.addItem(option)
+    self.issuer_cb.clearEditText()
     left_form.addRow(QLabel("УЦ:"), self.issuer_cb)
 
     # Область действия / наименование ЭДО
     self.scope_cb = QComboBox(self)
     self.scope_cb.setEditable(True)
-    self.scope_cb.setCurrentText("Область действия / наименование ЭДО")
+    line_edit = self.scope_cb.lineEdit()
+    line_edit.setPlaceholderText("Область/ЭДО:")
+    # Создаём палитру
+    palette = line_edit.palette()
+    # Цвет обычного текста (чёрный)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.scope_cb.addItem(option)
+    self.scope_cb.clearEditText()
     left_form.addRow(QLabel("Область/ЭДО:"), self.scope_cb)
 
     # ФИО владельца
     self.owner_cb = QComboBox(self)
     self.owner_cb.setEditable(True)
-    self.owner_cb.setCurrentText("ФИО владельца")
+    line_edit = self.owner_cb.lineEdit()
+    line_edit.setPlaceholderText("Версия СКЗИ")
+    # Создаём палитру
+    palette = line_edit.palette()
+    # Цвет обычного текста (чёрный)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.owner_cb.addItem(option)
+    self.owner_cb.clearEditText()
     left_form.addRow(QLabel("Владелец:"), self.owner_cb)
 
     h_layout.addWidget(left_group, 1)
@@ -112,30 +166,57 @@ def create_page8(self) -> QWidget:
     # Дополнительно
     self.additional_cb = QComboBox(self)
     self.additional_cb.setEditable(True)
-    self.additional_cb.setCurrentText("Дополнительно")
+    line_edit = self.additional_cb.lineEdit()
+    line_edit.setPlaceholderText("Дополнительно:")
+    # Создаём палитру
+    palette = line_edit.palette()
+    # Цвет обычного текста (чёрный)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.additional_cb.addItem(option)
+    self.additional_cb.clearEditText()
     right_form.addRow(QLabel("Дополнительно:"), self.additional_cb)
 
     # Заявка/номер обращения
-    self.request_le = QLineEdit(self)
-    self.request_le.setPlaceholderText("Заявка/номер обращения:")
-    self.request_le.setMinimumSize(250, 40)
-    self.request_le.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
-    right_form.addRow(QLabel("Номер обращения:"), self.request_le)
+    self.request_let = QLineEdit(self)
+    self.request_let.setPlaceholderText("Заявка/номер обращения:")
+    # Создаём палитру
+    palette = self.request_let.palette()
+    # Цвет обычного текста (белый)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    self.request_let.setPalette(palette)
+    right_form.addRow(QLabel("Номер обращения:"), self.request_let)
 
     # Примечание
     self.note_le = QLineEdit(self)
     self.note_le.setPlaceholderText("Примечание:")
-    self.note_le.setMinimumSize(250, 40)
-    self.note_le.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
+    # Создаём палитру
+    palette = self.note_le.palette()
+    # Цвет обычного текста (белый)
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    # Цвет placeholder-текста (зелёный)
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    # Применяем палитру к QLineEdit
+    self.note_le.setPalette(palette)
     right_form.addRow(QLabel("Примечание:"), self.note_le)
 
     h_layout.addWidget(right_group, 1)
 
+    # Кнопка для сохранения/обработки данных
+    self.save_button = QPushButton("Сохранить", self)
+    right_form.addRow(self.save_button)
+    self.save_button.clicked.connect(self.save_values8)
+
     # Шорткат для Enter
     enter_shortcut = QShortcut(QKeySequence("Return"), page)
-    enter_shortcut.activated.connect(self.getandgo2)
+    enter_shortcut.activated.connect(self.save_values8)
 
     # Кнопка "Назад"
     btn_back = QPushButton("Назад")
