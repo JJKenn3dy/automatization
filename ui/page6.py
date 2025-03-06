@@ -87,7 +87,7 @@ def create_page6(self) -> QWidget:
     palette = line_edit.palette()
     # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
+    # Цвет placeholder-текста (зелёный
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
