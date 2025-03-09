@@ -169,7 +169,7 @@ def create_page9(self) -> QWidget:
     # Кнопка для сохранения/обработки данных
     self.save_button = QPushButton("Сохранить", self)
     right_form.addRow(self.save_button)
-    self.save_button.clicked.connect(self.save_values6)
+    self.save_button.clicked.connect(self.save_values7)
 
     # Шорткат для Enter
     enter_shortcut = QShortcut(QKeySequence("Return"), page)

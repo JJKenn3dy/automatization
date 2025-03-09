@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import mariadb
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
@@ -26,7 +28,7 @@ from logic.file_manager import fileManager
 from logic.db import enter_fio, create_tables
 from logic.db import enter_variant
 from logic.readwritepdf import pdf_check
-
+from logic.db import enter_license
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -138,46 +140,6 @@ class MainWindow(QMainWindow):
             "certnum_le": certnum_le,
             "dateedit2": dateedit2,
         }
-        print("Сохранённые данные:", data)
-        # Здесь можно добавить дополнительную логику для работы с данными
-
-    def save_values6(self):
-        enter_number = self.enter_number.text()
-        combobox = self.combobox.currentText()
-        enter_key = self.enter_key.text()
-        scope = self.scope.currentText()
-        input_fio_user = self.input_fio_user.text()
-        dateedit = self.dateedit.date()
-        user = self.user.text()
-        # Определяем, какая радиокнопка выбрана
-        if self.rb_issued.isChecked():
-            license_status = "Выдано"
-        elif self.rb_installed.isChecked():
-            license_status = "Установлено"
-        elif self.rb_taken.isChecked():
-            license_status = "Изъято"
-        else:
-            license_status = "Не выбрано"  # Если ни одна не выбрана
-
-        input_mark = self.input_mark.text()
-        input_date = self.input_date.text()
-        # Преобразуем в строку в формате "день.месяц.год"
-        dateedit = dateedit.toString("dd.MM.yyyy")
-
-        # Можно собрать значения в словарь для дальнейшей обработки
-        data = {
-            "enter_number": enter_number,
-            "combobox": combobox,
-            "enter_key": enter_key,
-            "scope": scope,
-            "input_fio_user": input_fio_user,
-            "dateedit": dateedit,
-            "user": user,
-            "license_status": license_status,
-
-            "input_mark": input_mark,
-            "input_date": input_date,
-            }
         print("Сохранённые данные:", data)
         # Здесь можно добавить дополнительную логику для работы с данными
 

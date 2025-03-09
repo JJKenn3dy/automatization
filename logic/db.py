@@ -29,6 +29,7 @@ def create_tables():
             """
             CREATE TABLE IF NOT EXISTS License (
                 ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                number INT,
                 name_of_soft VARCHAR(100),
                 number_lic TEXT,
                 scop_using TEXT,
@@ -36,7 +37,9 @@ def create_tables():
                 name_apm TEXT,
                 date DATE,
                 fullname_it TEXT,
-                status TINYINT(1)
+                status TINYINT(1),
+                input_mark TEXT,
+                input_date TEXT
             )
             """,
             """
@@ -160,6 +163,34 @@ def update_license(field, value):
         conn.close()
     except mariadb.Error as e:
         print(f"Ошибка обновления {field} в License: {e}")
+
+
+def enter_license(enter_number, combobox, enter_key, scope, input_fio_user, name_apm, dateedit, user, status,
+                  input_mark, input_date):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True
+        )
+        cur = conn.cursor()
+
+        insert_query = """
+            INSERT INTO License 
+                (number, name_of_soft, number_lic, scop_using, fullname, name_apm, date, fullname_it, status, input_mark, input_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur.execute(insert_query, (
+        enter_number, combobox, enter_key, scope, input_fio_user, name_apm, dateedit, user, status, input_mark,
+        input_date))
+
+        conn.commit()
+        conn.close()
+    except mariadb.Error as e:
+        print(f"Ошибка вставки записи в License: {e}")
 
 
 def enter_fio(text):
