@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout
 )
 from PyQt6.QtCore import Qt
-from logic.db import enter_fio
 from logic.db import enter_license
 
 

@@ -4,12 +4,6 @@ import docx
 import mariadb
 
 
-def enterData():
-    """Retrieves the list of contacts from the database and prints to stdout"""
-    # Initialize Variables
-    # List Contacts
-    print(f"Ошибка обновления ключей:")
-
 
 
 def create_tables():
@@ -46,33 +40,36 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS SCZY (
                 ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 name_of_SCZY VARCHAR(100),
-                number_SCZY VARCHAR(100),
+                sczy_type TEXT,
+                number_SCZY TEXT,
                 date DATE,
                 number_license TEXT,
+                location TEXT,
                 owner TEXT,
                 date_and_number TEXT,
+                contract TEXT,
                 fullname_owner TEXT,
+                owners TEXT,
+                buss_proc TEXT,
                 additional TEXT,
                 note TEXT,
                 number_certificate TEXT,
-                date_expired DATE,
-                remove INT,
-                date_number_act INT
+                date_expired DATE
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS KeysTable (
                 ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                status TINYINT(1),
+                status TEXT,
                 type TEXT,
                 number_soft TEXT,
+                cert_serial_le TEXT,
                 owner TEXT,
                 scope_using TEXT,
                 owner_fullname TEXT,
-                VIP_Critical TINYINT(1),
+                VIP_Critical TEXT,
                 start_date DATE,
                 date_end DATE,
-                expired INT,
                 additional TEXT,
                 number_request INT,
                 note TEXT
@@ -82,7 +79,7 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS CBR (
                     ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                     number TEXT,
-                    status TINYINT(1),
+                    status TEXT,
                     number_serial TEXT,
                     number_key TEXT,
                     owner TEXT,
@@ -90,7 +87,6 @@ def create_tables():
                     fullname_owner TEXT,
                     date_start DATE,
                     date_end DATE,
-                    expired INT,
                     additional TEXT,
                     note TEXT
                 )
@@ -98,18 +94,18 @@ def create_tables():
                 """
                 CREATE TABLE IF NOT EXISTS TLS (
                     ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                    number TEXT,
-                    date DATE,
-                    scope TINYINT(1),
-                    access TINYINT(1),
-                    give_ac TEXT,
-                    initiator TEXT,
-                    owner_ac TEXT,
-                    algorithm TINYINT(1),
-                    scope_using TEXT,
-                    DNS TEXT,
-                    resolution TINYINT(1),
-                    additional TEXT
+                    number TEXT,          -- Номер заявки
+                    date DATE,            -- Дата согласования заявки
+                    environment TEXT,   -- Среда (тест/продуктив) - кодируется числом
+                    access TEXT,    -- Доступ (внешний/внутренний) - кодируется числом
+                    issuer TEXT,          -- Выдавший УЦ
+                    initiator TEXT,       -- Инициатор
+                    owner TEXT,           -- Владелец АС
+                    algorithm TEXT, -- Алгоритм (RSA/ГОСТ) - кодируется числом
+                    scope TEXT,           -- Область действия / наименование ЭДО
+                    DNS TEXT,             -- DNS
+                    resolution TEXT,-- резолюция ИБ (уточнение/согласовано/отказано) - кодируется числом
+                    note TEXT             -- Примечания
                 )
                 """,
             """
@@ -132,7 +128,40 @@ def create_tables():
         sys.exit(1)
 
 
-def update_license(field, value):
+def enter_TLS(
+    request_number,  # number
+    date_str,        # date
+    env,             # (будет записан в scope_using)
+    access,          # access
+    issuer,          # give_ac
+    initiator,       # initiator
+    owner,           # owner_ac
+    algo,            # algorithm
+    scope,           # scope
+    dns,             # DNS
+    resolution,      # resolution
+    note             # additional
+):
+    """
+    Сохраняет данные о TLS-заявке в таблицу TlsTable в правильном порядке:
+    (number, date, scope, access, give_ac, initiator, owner_ac, algorithm,
+     scope_using, DNS, resolution, additional).
+
+    Параметры:
+      request_number: номер (column 'number')
+      date_str: дата в формате 'YYYY-MM-DD' (column 'date')
+      env: среда (тест/прод), мы используем её как scope_using
+      access: внешний/внутренний (column 'access')
+      issuer: выдающий УЦ (column 'give_ac')
+      initiator: инициатор (column 'initiator')
+      owner: владелец АС (column 'owner_ac')
+      algo: алгоритм (column 'algorithm')
+      scope: область действия (column 'scope')
+      dns: DNS (column 'DNS')
+      resolution: резолюция ИБ (column 'resolution')
+      note: дополнительная информация (column 'additional')
+    """
+
     try:
         conn = mariadb.connect(
             host="localhost",
@@ -143,27 +172,46 @@ def update_license(field, value):
             autocommit=True
         )
         cur = conn.cursor()
-        # Проверяем, есть ли записи в таблице License
-        cur.execute("SELECT COUNT(*) FROM License")
-        count = cur.fetchone()[0]
-        if count == 0:
-            # Если таблица пуста, вставляем новую запись с указанным полем
-            insert_query = f"INSERT INTO License ({field}) VALUES (?)"
-            cur.execute(insert_query, (value,))
-        else:
-            # Если запись уже есть, обновляем последнюю запись
-            update_query = f"""
-            UPDATE License
-            SET {field} = ?
-            ORDER BY id DESC
-            LIMIT 1;
-            """
-            cur.execute(update_query, (value,))
+
+        insert_query = """
+            INSERT INTO TLS (
+                number,
+                date,
+                environment,
+                access,
+                issuer,
+                initiator,
+                owner,
+                algorithm,
+                scope,
+                DNS,
+                resolution,
+                note
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        # ВАЖНО: порядок аргументов строго соответствует порядку столбцов
+        cur.execute(insert_query, (
+            request_number,  # number
+            date_str,  # date
+            env,  # (будет записан в scope_using)
+            access,  # access
+            issuer,  # give_ac
+            initiator,  # initiator
+            owner,  # owner_ac
+            algo,  # algorithm
+            scope,  # scope
+            dns,  # DNS
+            resolution,  # resolution
+            note  # additional
+        ))
+
         conn.commit()
         conn.close()
-    except mariadb.Error as e:
-        print(f"Ошибка обновления {field} в License: {e}")
 
+    except mariadb.Error as e:
+        print(f"Ошибка вставки записи в TLS: {e}")
 
 def enter_license(enter_number, combobox, enter_key, scope, input_fio_user, name_apm, dateedit, user, status,
                   input_mark, input_date):
@@ -192,14 +240,195 @@ def enter_license(enter_number, combobox, enter_key, scope, input_fio_user, name
     except mariadb.Error as e:
         print(f"Ошибка вставки записи в License: {e}")
 
+def enter_sczy(
+    skzi_name,      # Наименование ПО
+    skzi_type,      # Тип СКЗИ
+    skzi_version,   # Версия СКЗИ (будет сохранена в number_SCZY)
+    date_str,       # Дата (YYYY-MM-DD)
+    reg_number,     # Регистрационный номер (number_license)
+    location_text,  # Местонахождение (ТОМ)
+    from_whom,      # От кого получены (owner)
+    doc_info,       # Документ (date_and_number)
+    contract,       # Договор (contract)
+    owner_fio,      # Владелец/процесс (fullname_owner)
+    owners,         # Владельцы (owners)
+    buss_proc,      # Бизнес процессы (buss_proc)
+    additional,     # Дополнительно (additional)
+    note,           # Примечание (note)
+    certnum,        # Сертификат (number_certificate)
+    dateedit2_str   # Доп. дата (date_expired)
+):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True
+        )
+        cur = conn.cursor()
+        insert_query = """
+            INSERT INTO SCZY (
+                name_of_SCZY,
+                sczy_type,
+                number_SCZY,
+                date,
+                number_license,
+                location,
+                owner,
+                date_and_number,
+                contract,
+                fullname_owner,
+                owners,
+                buss_proc,
+                additional,
+                note,
+                number_certificate,
+                date_expired
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cur.execute(insert_query, (
+            skzi_name,
+            skzi_type,
+            skzi_version,
+            date_str,
+            reg_number,
+            location_text,
+            from_whom,
+            doc_info,
+            contract,
+            owner_fio,
+            owners,
+            buss_proc,
+            additional,
+            note,
+            certnum,
+            dateedit2_str
+        ))
+        conn.commit()
+        conn.close()
+    except mariadb.Error as e:
+        print(f"Ошибка вставки записи в SCZY: {e}")
 
-def enter_fio(text):
-    update_license("fullname", text)
+def enter_keys(
+    status_cb,        # name_of_SCZY
+    nositel_type_cb,           # sczy_type
+    serial_le,     # number_SCZY
+    cert_serial_le,        # date
+    issuer_cb,       # number_license
+    scope_cb,        # owner
+    owner_cb,         # date_and_number
+    vip_cb,        # fullname_owner
+    dateedit_str,       # additional
+    dateedit2_str,             # note
+    additional_cb,          # number_certificate
+    request_let,        # date_expired
+    note_le        # date_expired
+):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True
+        )
+        cur = conn.cursor()
+
+        insert_query = """
+            INSERT INTO KeysTable (
+                status,
+                type,
+                cert_serial_le,
+                owner,
+                scope_using,
+                owner_fullname,
+                VIP_Critical,
+                start_date,
+                date_end,
+                additional,
+                number_request,
+                note
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        # Аргументы должны строго соответствовать порядку столбцов
+        cur.execute(insert_query, (
+            status_cb,
+            nositel_type_cb,
+            cert_serial_le,
+            issuer_cb,
+            scope_cb,
+            owner_cb,
+            vip_cb,
+            dateedit_str,
+            dateedit2_str,
+            additional_cb,
+            request_let,
+            note_le
+        ))
+
+        conn.commit()
+        conn.close()
+
+    except mariadb.Error as e:
+        print(f"Ошибка вставки записи в KEYS: {e}")
 
 
+def enter_CBR(request_le, nositel_cb, nositel_serial_cb, key_number_le, issuer_cb, scope_cb, owner_cb, dateedit_str, dateedit2_str, additional1_le, additional2_le):
+    try:
+        conn = mariadb.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            autocommit=True
+        )
+        cur = conn.cursor()
 
-def enter_variant(variant):
-    update_license("name_of_soft", variant)
+        insert_query = """
+               INSERT INTO CBR (
+                   number,
+                   status,
+                   number_serial,
+                   number_key,
+                   owner,
+                   scope_using,
+                   fullname_owner,
+                   date_start,
+                   date_end,
+                   additional,
+                   note
+               )
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           """
+
+        # Аргументы должны строго соответствовать порядку столбцов
+        cur.execute(insert_query, (
+            request_le,  # name_of_SCZY
+            nositel_cb,  # sczy_type
+            nositel_serial_cb,  # number_SCZY
+            key_number_le,  # date
+            issuer_cb,  # number_license
+            scope_cb,  # owner
+            owner_cb,  # date_and_number
+            dateedit_str,  # fullname_owner
+            dateedit2_str,  # note
+            additional1_le,  # number_certificate
+            additional2_le,  # date_expired
+        ))
+
+        conn.commit()
+        conn.close()
+
+    except mariadb.Error as e:
+        print(f"Ошибка вставки записи в CBR: {e}")
+
 
 
 def update_keys_table(keys_text):
@@ -233,5 +462,5 @@ def update_keys_table(keys_text):
 
 
 
-
+# по ейспейпу назад
 

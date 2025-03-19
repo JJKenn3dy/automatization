@@ -5,6 +5,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
+import sys, os
 
 
 def create_page1(self) -> QWidget:
@@ -12,6 +14,7 @@ def create_page1(self) -> QWidget:
     page = QWidget()
     main_layout = QHBoxLayout(page)
     main_layout.setContentsMargins(50, 40, 50, 40)
+    main_layout.setSpacing(15)
 
     # Левая колонка (текст + несколько кнопок)
     left_layout = QVBoxLayout()
@@ -40,21 +43,21 @@ def create_page1(self) -> QWidget:
     btn_to_second.clicked.connect(self.go_to_second_page)
     left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    btn_to_third = QPushButton(f"СКЗИ")
+    btn_to_third = QPushButton(f"Импорт")
     btn_to_third.clicked.connect(self.on_toggle)
     btn_to_third.setFixedSize(150, 50)
-    btn_to_third.clicked.connect(self.go_to_third_page)
+    btn_to_third.clicked.connect(self.go_to_11_page)
     btn_to_third.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
     left_layout.addWidget(btn_to_third, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    btn_to_fourth = QPushButton(f"Страница 3")
+    btn_to_fourth = QPushButton(f"UNWORK")
     btn_to_fourth.clicked.connect(self.on_toggle)
     btn_to_fourth.setFixedSize(150, 50)
     btn_to_fourth.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
     btn_to_fourth.clicked.connect(self.go_to_fourth_page)
     left_layout.addWidget(btn_to_fourth, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    btn_to_five = QPushButton(f"Страница 4")
+    btn_to_five = QPushButton(f"UNWORK")
     btn_to_five.clicked.connect(self.on_toggle)
     btn_to_five.setFixedSize(150, 50)
     btn_to_five.setStyleSheet('font-size: 15px; color: rgb(98, 150, 30);')
@@ -75,3 +78,13 @@ def create_page1(self) -> QWidget:
     main_layout.addWidget(container, alignment=Qt.AlignmentFlag.AlignRight)
 
     return page
+
+
+def resource_path(relative_path):
+    """Возвращает абсолютный путь к ресурсу, работает и в режиме разработки, и в режиме PyInstaller."""
+    try:
+        # PyInstaller создаёт временную папку _MEIPASS, где распаковываются ресурсы
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
