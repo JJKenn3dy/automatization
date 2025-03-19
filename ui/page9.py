@@ -5,7 +5,11 @@ from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
     QComboBox, QSizePolicy, QGroupBox, QFormLayout
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
+
+from logic.db import enter_CBR
+from ui.page8 import clear_fields
+
 
 def create_page9(self) -> QWidget:
     page = QWidget()
@@ -42,8 +46,8 @@ def create_page9(self) -> QWidget:
 
     # Тип носителя (Да/Нет?)
     self.nositel_cb = QComboBox(self)
-    self.nositel_cb.setEditable(True)
-    self.nositel_cb.setCurrentText("Тип носителя")
+    self.nositel_cb.setEditable(False)
+    self.nositel_cb.setPlaceholderText("Область применения")
     self.nositel_cb.addItem("Да")
     self.nositel_cb.addItem("Нет")
     left_form.addRow(QLabel("Тип носителя:"), self.nositel_cb)
@@ -51,9 +55,9 @@ def create_page9(self) -> QWidget:
     # Носитель (Серийный номер)
     self.nositel_serial_cb = QComboBox(self)
     self.nositel_serial_cb.setEditable(True)
-    self.nositel_serial_cb.setCurrentText("Носитель (Серийный номер)")
-    # Создаём палитру
     line_edit = self.nositel_serial_cb.lineEdit()
+    line_edit.setPlaceholderText("Носитель (Серийный номер)")
+    # Создаём палитру
     palette = line_edit.palette()
     # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
@@ -76,9 +80,9 @@ def create_page9(self) -> QWidget:
     left_form.addRow(QLabel("Номер ключа:"), self.key_number_le)
 
     # Выдавший УЦ
-    self.issuer_cb = QComboBox(self)
-    self.issuer_cb.setEditable(True)
-    line_edit = self.issuer_cb.lineEdit()
+    self.issuer_cb_cbr = QComboBox(self)
+    self.issuer_cb_cbr.setEditable(True)
+    line_edit = self.issuer_cb_cbr.lineEdit()
     line_edit.setPlaceholderText("Выдавший УЦ")
     # Создаём палитру
     palette = line_edit.palette()
@@ -89,9 +93,11 @@ def create_page9(self) -> QWidget:
     # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.issuer_cb.addItem(option)
-    self.issuer_cb.clearEditText()
-    left_form.addRow(QLabel("УЦ:"), self.issuer_cb)
+        self.issuer_cb_cbr.addItem(option)
+    self.issuer_cb_cbr.clearEditText()
+    left_form.addRow(QLabel("УЦ:"), self.issuer_cb_cbr)
+
+    h_layout.addWidget(left_group, 1)  # Пропорционально занимает часть
 
     # ---------- ПРАВЫЙ БЛОК ----------
     right_group = QGroupBox("Дополнительно")
@@ -100,10 +106,10 @@ def create_page9(self) -> QWidget:
     right_group.setLayout(right_form)
 
     # Область действия / наименование ЭДО
-    self.scope_cb = QComboBox(self)
-    self.scope_cb.setEditable(True)
-    self.scope_cb.setCurrentText("Область действия / наименование ЭДО")
-    line_edit = self.scope_cb.lineEdit()
+    self.scope_cb_cbr = QComboBox(self)
+    self.scope_cb_cbr.setEditable(True)
+    self.scope_cb_cbr.setCurrentText("Область действия / наименование ЭДО")
+    line_edit = self.scope_cb_cbr.lineEdit()
     line_edit.setPlaceholderText("Область действия / наименование ЭДО")
     # Создаём палитру
     palette = line_edit.palette()
@@ -114,16 +120,16 @@ def create_page9(self) -> QWidget:
     # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.scope_cb.addItem(option)
-    self.scope_cb.clearEditText()
-    right_form.addRow(QLabel("Область/ЭДО:"), self.scope_cb)
+        self.scope_cb_cbr.addItem(option)
+    self.scope_cb_cbr.clearEditText()
+    right_form.addRow(QLabel("Область/ЭДО:"), self.scope_cb_cbr)
 
     # ФИО владельца
-    self.owner_cb = QComboBox(self)
-    self.owner_cb.setEditable(True)
-    self.owner_cb.setCurrentText("ФИО владельца")
+    self.owner_cb_cbr = QComboBox(self)
+    self.owner_cb_cbr.setEditable(True)
     # Создаём палитру
-    line_edit = self.owner_cb.lineEdit()
+    line_edit = self.owner_cb_cbr.lineEdit()
+    line_edit.setPlaceholderText("ФИО владельца")
     palette = line_edit.palette()
     # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
@@ -132,9 +138,9 @@ def create_page9(self) -> QWidget:
     # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.owner_cb.addItem(option)
-    self.owner_cb.clearEditText()
-    right_form.addRow(QLabel("Владелец:"), self.owner_cb)
+        self.owner_cb_cbr.addItem(option)
+    self.owner_cb_cbr.clearEditText()
+    right_form.addRow(QLabel("Владелец:"), self.owner_cb_cbr)
 
     # Дата 1
     self.dateedit1 = QtWidgets.QDateEdit(calendarPopup=True)
@@ -169,11 +175,13 @@ def create_page9(self) -> QWidget:
     # Кнопка для сохранения/обработки данных
     self.save_button = QPushButton("Сохранить", self)
     right_form.addRow(self.save_button)
-    self.save_button.clicked.connect(self.save_values7)
+    self.save_button.clicked.connect(lambda: save_value9(self))
+
+
 
     # Шорткат для Enter
     enter_shortcut = QShortcut(QKeySequence("Return"), page)
-    enter_shortcut.activated.connect(self.getandgo2)
+    enter_shortcut.activated.connect(lambda: save_value9(self))
 
     # Кнопка "Назад"
     btn_back = QPushButton("Назад")
@@ -181,3 +189,36 @@ def create_page9(self) -> QWidget:
     main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
 
     return page
+
+
+def save_value9(self):
+    request_le = self.request_le.text()
+    nositel_cb = self.nositel_cb.currentText()
+    nositel_serial_cb = self.nositel_serial_cb.currentText()
+    key_number_le = self.key_number_le.text()
+    issuer_cb = self.issuer_cb_cbr.currentText()
+    scope_cb = self.scope_cb_cbr.currentText()
+    owner_cb = self.owner_cb_cbr.currentText()
+    dateedit1 = self.dateedit1.date()
+    dateedit2 = self.dateedit2.date()
+    additional1_le = self.additional1_le.text()
+    additional2_le = self.additional2_le.text()
+
+    dateedit_str = dateedit1.toPyDate().strftime('%Y-%m-%d')
+    dateedit2_str = dateedit2.toPyDate().strftime('%Y-%m-%d')
+
+    enter_CBR(request_le, nositel_cb, nositel_serial_cb, key_number_le, issuer_cb, scope_cb, owner_cb, dateedit_str, dateedit2_str, additional1_le, additional2_le)
+    clear_fields(self)
+
+def clear_fields(self):
+    self.request_le.clear()
+    self.nositel_cb.clearEditText()
+    self.nositel_serial_cb.clearEditText()
+    self.key_number_le.clear()
+    self.issuer_cb_cbr.clearEditText()
+    self.scope_cb_cbr.clearEditText()
+    self.owner_cb_cbr.clearEditText()
+    self.dateedit1.setDate(QDate.currentDate())
+    self.dateedit2.setDate(QDate.currentDate())
+    self.additional1_le.clear()
+    self.additional2_le.clear()
