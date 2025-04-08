@@ -9,7 +9,11 @@ from PyQt6 import QtWidgets
 def create_page3(self) -> QWidget:
     """Страница с календарем для выбора даты."""
     page = QWidget()
+
     layout = QVBoxLayout(page)
+    btn_back = QPushButton("Назад на главную")
+    btn_back.clicked.connect(self.go_to_first_page)
+    layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
 
     title = QLabel("СКЗИ")
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -32,9 +36,7 @@ def create_page3(self) -> QWidget:
     # При клике обновляем метку
     calendar.clicked.connect(lambda date: self.cal_label.setText(date.toString()))
 
-    btn_back = QPushButton("Назад на главную")
-    btn_back.clicked.connect(self.go_to_first_page)
-    layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
+
 
     return page
 

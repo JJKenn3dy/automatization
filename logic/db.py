@@ -45,6 +45,7 @@ def create_tables():
                 date DATE,
                 number_license TEXT,
                 location TEXT,
+                location_TOM_text TEXT,
                 owner TEXT,
                 date_and_number TEXT,
                 contract TEXT,
@@ -62,7 +63,6 @@ def create_tables():
                 ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 status TEXT,
                 type TEXT,
-                number_soft TEXT,
                 cert_serial_le TEXT,
                 owner TEXT,
                 scope_using TEXT,
@@ -247,6 +247,7 @@ def enter_sczy(
     date_str,       # Дата (YYYY-MM-DD)
     reg_number,     # Регистрационный номер (number_license)
     location_text,  # Местонахождение (ТОМ)
+    location_TOM_text,  # Местонахождение (ТОМ)
     from_whom,      # От кого получены (owner)
     doc_info,       # Документ (date_and_number)
     contract,       # Договор (contract)
@@ -276,6 +277,7 @@ def enter_sczy(
                 date,
                 number_license,
                 location,
+                location_TOM_text,
                 owner,
                 date_and_number,
                 contract,
@@ -287,7 +289,7 @@ def enter_sczy(
                 number_certificate,
                 date_expired
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         cur.execute(insert_query, (
             skzi_name,
@@ -296,6 +298,7 @@ def enter_sczy(
             date_str,
             reg_number,
             location_text,
+            location_TOM_text,
             from_whom,
             doc_info,
             contract,
@@ -313,19 +316,18 @@ def enter_sczy(
         print(f"Ошибка вставки записи в SCZY: {e}")
 
 def enter_keys(
-    status_cb,        # name_of_SCZY
-    nositel_type_cb,           # sczy_type
-    serial_le,     # number_SCZY
-    cert_serial_le,        # date
-    issuer_cb,       # number_license
-    scope_cb,        # owner
-    owner_cb,         # date_and_number
-    vip_cb,        # fullname_owner
-    dateedit_str,       # additional
-    dateedit2_str,             # note
-    additional_cb,          # number_certificate
-    request_let,        # date_expired
-    note_le        # date_expired
+    status_cb,
+    nositel_type_cb,
+    cert_serial_le,
+    issuer_cb,
+    scope_cb,
+    owner_cb,
+    vip_cb,
+    dateedit_str,
+    dateedit2_str,
+    additional_cb,
+    request_let,
+    note_le
 ):
     try:
         conn = mariadb.connect(
@@ -353,7 +355,7 @@ def enter_keys(
                 number_request,
                 note
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         # Аргументы должны строго соответствовать порядку столбцов
@@ -428,35 +430,6 @@ def enter_CBR(request_le, nositel_cb, nositel_serial_cb, key_number_le, issuer_c
 
     except mariadb.Error as e:
         print(f"Ошибка вставки записи в CBR: {e}")
-
-
-
-def update_keys_table(keys_text):
-    try:
-        conn = mariadb.connect(
-            host="localhost",
-            port=3306,
-            user="newuser",
-            password="852456qaz",
-            database="IB",
-            autocommit=True
-        )
-        cur = conn.cursor()
-        # Разбиваем текст на отдельные строки
-        # Проверяем, есть ли записи в таблице License
-        cur.execute("SELECT COUNT(*) FROM keying")
-        count = cur.fetchone()[0]
-        if count == 0:
-            lines = keys_text.splitlines()
-            for line in lines:
-                # Если строка не пустая, вставляем её в таблицу
-                if line.strip():
-                    insert_query = "INSERT INTO keying (number) VALUES (?)"
-                    cur.execute(insert_query, (line.strip(),))
-            conn.commit()
-            conn.close()
-    except mariadb.Error as e:
-        print(f"Ошибка обновления ключей: {e}")
 
 
 

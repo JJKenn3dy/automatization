@@ -5,7 +5,7 @@ from docx import Document
 from docx.shared import Inches
 from docx import Document
 
-from logic.db import update_keys_table
+
 
 
 def pdf_check(self):
