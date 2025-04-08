@@ -23,6 +23,7 @@ def create_page10(self) -> QWidget:
     btn_back.setStyleSheet(
         "background-color: #333333; color: white; font-size: 15px; border: 1px solid #555; border-radius: 4px;")
     btn_back.clicked.connect(self.go_to_second_page)
+    btn_back.setMinimumSize(150, 30)
     main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
 
     # Заголовок
@@ -367,7 +368,7 @@ def load_data10(self):
                                      like_pattern, like_pattern, like_pattern, like_pattern,
                                      like_pattern, like_pattern, like_pattern, like_pattern, like_pattern))
         else:
-            query = "SELECT * FROM TLS ORDER BY ID DESC LIMIT 50"
+            query = "SELECT * FROM TLS ORDER BY ID DESC LIMIT 500"
             cursor.execute(query)
         results = cursor.fetchall()
         connection.close()

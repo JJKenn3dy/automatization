@@ -9,9 +9,74 @@ from PyQt6.QtWidgets import (
     QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout,
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
-from PyQt6.QtCore import Qt, QDate
-from logic.db import enter_license
 from PyQt6.QtCore import Qt, QDate, QTimer
+from logic.db import enter_license
+
+
+def update_line_edit_style(line_edit, condition_error: bool):
+    """
+    Устанавливает стиль для QLineEdit:
+      - если condition_error == True, рамка красная (ошибка)
+      - иначе, стандартная рамка.
+    """
+    if condition_error:
+        style = (
+            "background-color: #1e1e1e; "
+            "border: 1px solid red; "
+            "border-radius: 4px; "
+            "padding: 2px; "
+            "color: white;"
+        )
+    else:
+        style = (
+            "background-color: #1e1e1e; "
+            "border: 1px solid #444; "
+            "border-radius: 4px; "
+            "padding: 2px; "
+            "color: white;"
+        )
+    line_edit.setStyleSheet(style)
+
+
+def update_combobox_style(combo_box, condition_error: bool):
+    """
+    Устанавливает стиль для QComboBox:
+      - если condition_error == True, рамка красная
+      - иначе, стандартная рамка.
+    """
+    if condition_error:
+        style = """
+            QComboBox {
+                background-color: #1e1e1e;
+                color: white;
+                border: 1px solid red;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #121212;
+                color: white;
+                selection-background-color: #444;
+                selection-color: white;
+            }
+        """
+    else:
+        style = """
+            QComboBox {
+                background-color: #1e1e1e;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #121212;
+                color: white;
+                selection-background-color: #444;
+                selection-color: white;
+            }
+        """
+    combo_box.setStyleSheet(style)
 
 
 def create_page6(self) -> QWidget:
@@ -37,8 +102,10 @@ def create_page6(self) -> QWidget:
     escape_shortcut = QShortcut(QKeySequence("Escape"), page)
     escape_shortcut.activated.connect(self.go_to_second_page)
     btn_back = QPushButton("Назад")
-    btn_back.setStyleSheet("background-color: #333; color: white; padding: 5px 10px; border-radius: 3px;")
+    btn_back.setStyleSheet( "background-color: #333333; color: white; font-size: 15px; "
+        "border: 1px solid #555; border-radius: 4px; padding: 5px;")
     btn_back.clicked.connect(self.go_to_second_page)
+    btn_back.setMinimumSize(150, 30)
     main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
 
     # Заголовок
@@ -79,14 +146,12 @@ def create_page6(self) -> QWidget:
     # ---- Номер заявки ----
     self.enter_number = QLineEdit(self)
     self.enter_number.setPlaceholderText("Введите номер заявки")
-    # Настройка цвета текста и подсказки остаётся прежней через palette
     palette = self.enter_number.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.enter_number.setPalette(palette)
     left_group_layout.addRow(QLabel("Номер заявки:"), self.enter_number)
-
-    # Подключаем проверку при изменении текста: поле должно состоять из цифр и не быть пустым.
+    # Подключаем проверку: должно состоять только из цифр и не быть пустым.
     self.enter_number.textChanged.connect(
         lambda: update_line_edit_style(
             self.enter_number,
@@ -122,8 +187,7 @@ def create_page6(self) -> QWidget:
         self.combobox.addItem(option)
     self.combobox.clearEditText()
     left_group_layout.addRow(QLabel("Выберите ПО СКЗИ:"), self.combobox)
-
-    # Проверка комбобокса при изменении текста:
+    # Подключаем проверку комбобокса
     self.combobox.lineEdit().textChanged.connect(
         lambda: update_combobox_style(
             self.combobox,
@@ -139,7 +203,6 @@ def create_page6(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.enter_key.setPalette(palette)
     left_group_layout.addRow(QLabel("Ключ:"), self.enter_key)
-
     self.enter_key.textChanged.connect(
         lambda: update_line_edit_style(self.enter_key, len(self.enter_key.text().strip()) == 0)
     )
@@ -172,7 +235,6 @@ def create_page6(self) -> QWidget:
         self.scope.addItem(option)
     self.scope.clearEditText()
     left_group_layout.addRow(QLabel("Область/сфера:"), self.scope)
-
     self.scope.lineEdit().textChanged.connect(
         lambda: update_combobox_style(
             self.scope,
@@ -188,7 +250,6 @@ def create_page6(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.input_fio_user.setPalette(palette)
     left_group_layout.addRow(QLabel("ФИО пользователя:"), self.input_fio_user)
-
     self.input_fio_user.textChanged.connect(
         lambda: update_line_edit_style(self.input_fio_user, len(self.input_fio_user.text().strip()) <= 3)
     )
@@ -201,25 +262,94 @@ def create_page6(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.input_apm.setPalette(palette)
     left_group_layout.addRow(QLabel("Имя AP/IP:"), self.input_apm)
-
     self.input_apm.textChanged.connect(
         lambda: update_line_edit_style(self.input_apm, len(self.input_apm.text().strip()) <= 3)
     )
 
-    # ---- Поле "Сотрудник ИБ" (в правой части) ----
-    self.user = QLineEdit(self)
-    self.user.setPlaceholderText("Введите ФИО сотрудника ИБ")
-    palette = self.user.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.user.setPalette(palette)
-    right_group_layout.addRow(QLabel("Сотрудник ИБ:"), self.user)
+    # Добавляем левый блок в горизонтальный лэйаут
+    h_layout.addWidget(left_group, 1)
 
-    self.user.textChanged.connect(
-        lambda: update_line_edit_style(self.user, len(self.user.text().strip()) <= 3)
-    )
+    # ---------- ПРАВЫЙ БЛОК (Информация об установке) ----------
+    right_group = QGroupBox("Информация об установке")
+    right_group.setStyleSheet("""
+        QGroupBox {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            color: white;
+        }
+        QLabel {
+            color: white;
+        }
+    """)
+    right_group_layout = QFormLayout()
+    right_group_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    right_group.setLayout(right_group_layout)
 
-    # ---- Обработка изменения даты в QDateEdit (опционально) ----
+    # ---- Календарь (дата) ----
+    self.dateedit = QtWidgets.QDateEdit(calendarPopup=True)
+    self.dateedit.setDateTime(datetime.today())
+    self.dateedit.setMaximumSize(100, 40)
+    self.dateedit.setStyleSheet("""
+    QDateEdit {
+        background-color: #1e1e1e;
+        color: white;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 2px;
+    }
+    QDateEdit::drop-down {
+        background-color: #1e1e1e;
+    }
+    QDateEdit::down-arrow {
+        width: 8px;
+        height: 8px;
+    }
+    QCalendarWidget {
+        background-color: #1e1e1e;
+        color: white;
+        border: 1px solid #444;
+    }
+    QCalendarWidget QToolButton {
+        background-color: #333;
+        color: white;
+        margin: 5px;
+        border-radius: 3px;
+    }
+    QCalendarWidget QToolButton:hover {
+        background-color: #444;
+    }
+    QCalendarWidget QToolButton:disabled {
+        background-color: #777;
+    }
+    QCalendarWidget QSpinBox {
+        background-color: #333;
+        color: white;
+        selection-background-color: #444;
+        selection-color: white;
+    }
+    QCalendarWidget QSpinBox:hover {
+        background-color: #444;
+    }
+    QCalendarWidget QAbstractItemView:enabled {
+        background-color: #121212;
+        color: #e0e0e0;
+        selection-background-color: #444;
+        selection-color: white;
+    }
+    QCalendarWidget QAbstractItemView:disabled {
+        color: #666;
+    }
+    """)
+    right_group_layout.addRow(QLabel("Дата выдачи:"), self.dateedit)
+
+    # Подключаем проверку изменения даты
     self.dateedit.dateChanged.connect(
         lambda date: self.dateedit.setStyleSheet(
             "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
@@ -227,6 +357,19 @@ def create_page6(self) -> QWidget:
             else "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
         )
     )
+
+    # ---- Поле "Сотрудник ИБ" ----
+    self.user = QLineEdit(self)
+    self.user.setPlaceholderText("Введите ФИО сотрудника ИБ")
+    palette = self.user.palette()
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    self.user.setPalette(palette)
+    right_group_layout.addRow(QLabel("Сотрудник ИБ:"), self.user)
+    self.user.textChanged.connect(
+        lambda: update_line_edit_style(self.user, len(self.user.text().strip()) <= 3)
+    )
+
     # ---- Статус лицензии (радиокнопки) ----
     self.status_group = QGroupBox("Статус лицензии")
     self.status_group.setStyleSheet("QGroupBox { background-color: transparent; border: none; }")
@@ -257,6 +400,18 @@ def create_page6(self) -> QWidget:
     status_layout.addWidget(self.rb_taken)
     right_group_layout.addRow(self.status_group)
 
+    # Подключаем изменение видимости дополнительных полей (например, для статуса "Изьято")
+    self.rb_issued.toggled.connect(self.update_extra_fields_visibility)
+    self.rb_installed.toggled.connect(self.update_extra_fields_visibility)
+    self.rb_taken.toggled.connect(self.update_extra_fields_visibility)
+
+    # ---- Кнопка "Сохранить" ----
+    self.save_button = QPushButton("Сохранить", self)
+    self.save_button.setStyleSheet("background-color: #333; color: white; padding: 5px 10px; border-radius: 3px;")
+    right_group_layout.addRow(self.save_button)
+    self.save_button.clicked.connect(lambda: save_values6(self))
+
+    # Добавляем правый блок в горизонтальный лэйаут
     h_layout.addWidget(right_group, 1)
 
     # ---------- Дополнительные поля (изъятие/уничтожение) ----------
@@ -291,20 +446,9 @@ def create_page6(self) -> QWidget:
     extra_layout.addRow(QLabel("Документ/дата:"), self.input_date)
     main_layout.addWidget(self.extra_group)
 
-
-
     # --- Кнопки и ярлыки ---
-
     enter_shortcut = QShortcut(QKeySequence("Return"), page)
     enter_shortcut.activated.connect(lambda: save_values6(self))
-    self.rb_issued.toggled.connect(self.update_extra_fields_visibility)
-    self.rb_installed.toggled.connect(self.update_extra_fields_visibility)
-    self.rb_taken.toggled.connect(self.update_extra_fields_visibility)
-    # Например, подключение кнопки "Сохранить":
-    self.save_button = QPushButton("Сохранить", self)
-    self.save_button.setStyleSheet("background-color: #333; color: white; padding: 5px 10px; border-radius: 3px;")
-    right_group_layout.addRow(self.save_button)
-    self.save_button.clicked.connect(lambda: save_values6(self))
 
     # --- Добавление внизу страницы виджета с таблицей и поиском ---
     data_table_widget = create_data_table(self)
@@ -312,7 +456,7 @@ def create_page6(self) -> QWidget:
 
     # --- Создаем таймер для периодического обновления таблицы ---
     self.refresh_timer = QTimer(self)
-    self.refresh_timer.setInterval(60000)  # Интервал в миллисекундах, 60000 = 60 секунд
+    self.refresh_timer.setInterval(60000)  # 60 секунд
     self.refresh_timer.timeout.connect(lambda: load_data(self))
     self.refresh_timer.start()
 
@@ -342,14 +486,14 @@ def create_data_table(self) -> QWidget:
     self.table_widget.setColumnCount(12)
     self.table_widget.setRowCount(5)
     self.table_widget.setHorizontalHeaderLabels([
-        "ID", "Номер", "ПО", "Номер лицензии", "Область применения",
+        "ID", "Номер", "ПО", "Номер ключа", "Область применения",
         "ФИО пользователя", "APM", "Дата", "ФИО IT", "Статус", "Отметка", "Дата документа"
     ])
     self.table_widget.horizontalHeader().setStretchLastSection(True)
     self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
     layout.addWidget(self.table_widget)
 
-    # При изменении текста в поиске перезагружаем данные
+    # При изменении текста в поисковой строке перезагружаем данные
     self.search_line.textChanged.connect(lambda: load_data(self))
     # Первоначальная загрузка данных
     load_data(self)
@@ -386,12 +530,11 @@ def load_data(self):
             like_pattern = f"%{search_text}%"
             cursor.execute(query, (like_pattern, like_pattern, like_pattern))
         else:
-            query = "SELECT * FROM License ORDER BY ID DESC LIMIT 50"
+            query = "SELECT * FROM License ORDER BY ID DESC LIMIT 500"
             cursor.execute(query)
         results = cursor.fetchall()
         connection.close()
         self.table_widget.setStyleSheet("QTableWidget { font-size: 11pt; }")
-        self.table_widget.setHorizontalHeaderLabels
         self.table_widget.setRowCount(len(results))
         for row_idx, row_data in enumerate(results):
             # Порядок колонок: ID, number, name_of_soft, number_lic, scop_using,
@@ -450,7 +593,6 @@ def save_values6(self):
         errors.append("Название АРМ должно содержать более 3 символов")
 
     dateedit = self.dateedit.date()
-    # Проверка на валидную дату (этот пример может потребовать доработки)
     if not dateedit.isValid():
         errors.append("Неверная дата")
 
@@ -472,13 +614,11 @@ def save_values6(self):
             status = 3
             input_mark = "True"
 
-    # Если есть ошибки - показать их и прервать сохранение
     if errors:
         error_message = "Обнаружены ошибки:\n\n" + "\n".join(f"• {error}" for error in errors)
         QMessageBox.critical(self, "Ошибка заполнения", error_message)
         return
 
-    # Если ошибок нет - продолжить сохранение
     input_date = self.input_date.text()
 
     data = {
@@ -529,68 +669,3 @@ def update_extra_fields_visibility(self):
     Показывает блок 'Дополнительные сведения', если выбрана опция "Изьято".
     """
     self.extra_group.setVisible(self.rb_taken.isChecked())
-
-
-def update_line_edit_style(line_edit, condition_error: bool):
-    """
-    Устанавливает стиль для QLineEdit:
-      - если condition_error == True, рамка красная (ошибка)
-      - иначе, стандартная рамка.
-    """
-    if condition_error:
-        style = (
-            "background-color: #1e1e1e; "
-            "border: 1px solid red; "
-            "border-radius: 4px; "
-            "padding: 2px; "
-            "color: white;"
-        )
-    else:
-        style = (
-            "background-color: #1e1e1e; "
-            "border: 1px solid #444; "
-            "border-radius: 4px; "
-            "padding: 2px; "
-            "color: white;"
-        )
-    line_edit.setStyleSheet(style)
-
-def update_combobox_style(combo_box, condition_error: bool):
-    """
-    Устанавливает стиль для QComboBox:
-      - если condition_error == True, рамка красная
-      - иначе, стандартная рамка.
-    """
-    if condition_error:
-        style = """
-            QComboBox {
-                background-color: #1e1e1e;
-                color: white;
-                border: 1px solid red;
-                border-radius: 4px;
-                padding: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #121212;
-                color: white;
-                selection-background-color: #444;
-                selection-color: white;
-            }
-        """
-    else:
-        style = """
-            QComboBox {
-                background-color: #1e1e1e;
-                color: white;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #121212;
-                color: white;
-                selection-background-color: #444;
-                selection-color: white;
-            }
-        """
-    combo_box.setStyleSheet(style)

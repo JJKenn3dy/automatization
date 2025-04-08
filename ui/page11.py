@@ -25,6 +25,7 @@ def create_page11(self) -> QWidget:
         "background-color: #333333; color: white; font-size: 15px; "
         "border: 1px solid #555; border-radius: 4px; padding: 5px;"
     )
+    btn_back.setMinimumSize(150, 30)
     main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
 
     # Заголовок
