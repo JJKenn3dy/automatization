@@ -3,23 +3,33 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
-    QComboBox, QSizePolicy, QGroupBox, QFormLayout
+    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QHeaderView
 )
 from PyQt6.QtCore import Qt
-
 from logic.db import enter_sczy
+import pymysql  # Добавляем импорт, если ещё не импортирован
+from PyQt6.QtWidgets import QTableWidgetItem
+from PyQt6.QtCore import QTimer
 
 
 def create_page7(self) -> QWidget:
     page = QWidget()
+    # Устанавливаем общий тёмный фон и белый текст для страницы
+    page.setStyleSheet("background-color: #121212; color: white;")
     main_layout = QVBoxLayout(page)
     main_layout.setContentsMargins(20, 20, 20, 20)
     main_layout.setSpacing(15)
 
+    btn_back = QPushButton("Назад")
+    btn_back.setStyleSheet(
+        "background-color: #333333; color: white; font-size: 15px; border: 1px solid #555; border-radius: 4px;")
+    btn_back.clicked.connect(self.go_to_second_page)
+    main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
+
     # Заголовок
     header_label = QLabel("СКЗИ")
     header_label.setWordWrap(True)
-    header_label.setStyleSheet("font-size: 20px; color: #76787A;")
+    header_label.setStyleSheet("font-size: 20px; color: white;")
     header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     main_layout.addWidget(header_label)
 
@@ -28,47 +38,51 @@ def create_page7(self) -> QWidget:
     h_layout.setSpacing(30)
     main_layout.addLayout(h_layout)
 
-    # ---------- ЛЕВЫЙ БЛОК ----------
+    # ---------- ЛЕВЫЙ БЛОК (Основные данные) ----------
     left_group = QGroupBox("Основные данные")
+    left_group.setStyleSheet("""
+        QGroupBox {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-top: 10px;
+            padding: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            color: white;
+        }
+    """)
     left_form = QFormLayout()
     left_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
     left_group.setLayout(left_form)
 
+    # Наименование СКЗИ (QComboBox)
     self.skzi_name_cb = QComboBox(self)
     self.skzi_name_cb.setEditable(True)
-    # Получаем встроенный QLineEdit
     line_edit = self.skzi_name_cb.lineEdit()
-    line_edit.setPlaceholderText("Наименование ПО")
-    # Создаём палитру
+    line_edit.setPlaceholderText("Наименование СКЗИ")
     palette = line_edit.palette()
-    # Цвет обычного текста
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
-    # Добавляем варианты
     for option in ["Option 2", "Option 3", "Option 4", "Option 5"]:
         self.skzi_name_cb.addItem(option)
-    # Сбрасываем текущий текст, чтобы поле было пустым
     self.skzi_name_cb.clearEditText()
-    left_form.addRow(QLabel("Наименование ПО:"), self.skzi_name_cb)
+    left_form.addRow(QLabel("Наименование СКЗИ:"), self.skzi_name_cb)
 
-    # Создаём редактируемый QComboBox
+    # Тип СКЗИ (не редактируемый)
     self.skzi_type = QComboBox(self)
     self.skzi_type.setEditable(False)
-    # Создаём палитру
+    # Переиспользуем палитру из предыдущего line_edit
     palette = line_edit.palette()
-    # Цвет обычного текста
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
-    # Добавляем варианты в QComboBox
     for option in ["ПО", "ПАК"]:
         self.skzi_type.addItem(option)
-    # Очищаем поле, чтобы placeholder-текст был виден сразу
     self.skzi_type.clearEditText()
     left_form.addRow(QLabel("Тип СКЗИ:"), self.skzi_type)
 
@@ -78,90 +92,124 @@ def create_page7(self) -> QWidget:
     self.skzi_version_cb.setCurrentText("Версия СКЗИ")
     line_edit = self.skzi_version_cb.lineEdit()
     line_edit.setPlaceholderText("Версия СКЗИ")
-    # Создаём палитру
     palette = line_edit.palette()
-    # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.skzi_version_cb.addItem(option)
     self.skzi_version_cb.clearEditText()
     left_form.addRow(QLabel("Версия СКЗИ:"), self.skzi_version_cb)
 
-    # Календарь (дата)
+    # Календарь (Дата)
     self.dateedit = QtWidgets.QDateEdit(calendarPopup=True)
     self.dateedit.setDateTime(datetime.today())
+    self.dateedit.setStyleSheet("""
+        QDateEdit {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QDateEdit::drop-down {
+            background-color: #1e1e1e;
+        }
+        QCalendarWidget {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+        }
+        QCalendarWidget QToolButton {
+            background-color: #333;
+            color: white;
+            margin: 5px;
+            border-radius: 3px;
+        }
+        QCalendarWidget QToolButton:hover {
+            background-color: #444;
+        }
+        QCalendarWidget QAbstractItemView:enabled {
+            background-color: #121212;
+            color: #e0e0e0;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """)
     left_form.addRow(QLabel("Дата:"), self.dateedit)
 
-    # Местанохождение ПО
+    # Местонахождение ПО
     self.location = QLineEdit(self)
-    # Устанавливаем placeholder
-    self.location.setPlaceholderText("Местанохождение (ТОМ)")
-    # Создаём палитру
+    self.location.setPlaceholderText("Местонахождение ТОМа")
     palette = self.location.palette()
-    # Цвет обычного текста (белый)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     self.location.setPalette(palette)
-    # Добавляем в форму
-    left_form.addRow(QLabel("ТОМ:"), self.location)
+    left_form.addRow(QLabel("Местонахождение:"), self.location)
 
-
-    # Дата и номер документа, сопроводительного письма
-    self.doc_info_le = QLineEdit(self)
-    # Устанавливаем placeholder
-    self.doc_info_le.setPlaceholderText("Дата и номер документа, сопроводительного письма")
-    # Создаём палитру
-    palette = self.doc_info_le.palette()
-    # Цвет обычного текста (белый)
+    # ТОМ
+    self.location_TOM = QLineEdit(self)
+    self.location_TOM.setPlaceholderText("ТОМ")
+    palette = self.location_TOM.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
-    self.doc_info_le.setPalette(palette)
-    # Добавляем в форму
-    left_form.addRow(QLabel("Документ:"), self.doc_info_le)
+    self.location_TOM.setPalette(palette)
+    left_form.addRow(QLabel("ТОМ:"), self.location_TOM)
+
+    # Документ (дата и номер)
+    self.doc_info_skzi = QLineEdit(self)
+    self.doc_info_skzi.setPlaceholderText("Дата и номер документа")
+    palette = self.doc_info_skzi.palette()
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    self.doc_info_skzi.setPalette(palette)
+    left_form.addRow(QLabel("Документ:"), self.doc_info_skzi)
 
     # Договор
-    self.contract = QLineEdit(self)
-    # Устанавливаем placeholder
-    self.contract.setPlaceholderText("Договор")
-    # Создаём палитру
-    palette = self.contract.palette()
-    # Цвет обычного текста (белый)
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
-    self.contract.setPalette(palette)
-    # Добавляем в форму
-    left_form.addRow(QLabel("Договор:"), self.contract)
-
-    # ФИО владельца, бизнес-процесс
-    self.owner_fio_le = QLineEdit(self)
-    self.owner_fio_le.setPlaceholderText("ФИО владельца, бизнес-процесс")
-    palette = self.owner_fio_le.palette()
+    self.contract_skzi = QLineEdit(self)
+    self.contract_skzi.setPlaceholderText("Договор")
+    palette = self.contract_skzi.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.owner_fio_le.setPalette(palette)
-    left_form.addRow(QLabel("Владелец/процесс:"), self.owner_fio_le)
+    self.contract_skzi.setPalette(palette)
+    left_form.addRow(QLabel("Договор:"), self.contract_skzi)
 
+    # Владелец (fullname_owner)
+    self.fullname_owner = QLineEdit(self)
+    self.fullname_owner.setPlaceholderText("Владелец")
+    palette = self.fullname_owner.palette()
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
+    self.fullname_owner.setPalette(palette)
+    left_form.addRow(QLabel("Владелец:"), self.fullname_owner)
+
+    left_form.setSpacing(10)
     h_layout.addWidget(left_group, 1)
 
-    # ---------- ПРАВЫЙ БЛОК ----------
+    # ---------- ПРАВЫЙ БЛОК (Дополнительные сведения) ----------
     right_group = QGroupBox("Дополнительные сведения")
+    right_group.setStyleSheet("""
+        QGroupBox {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-top: 10px;
+            padding: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            color: white;
+        }
+    """)
     right_form = QFormLayout()
     right_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
     right_group.setLayout(right_form)
 
-    # Регистрационный (серийный) номер
+    # Регистрационный номер
     self.reg_number_le = QLineEdit(self)
-    self.reg_number_le.setPlaceholderText("Регистрационный (серийный) номер")
+    self.reg_number_le.setPlaceholderText("Регистрационный номер")
     palette = self.reg_number_le.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
@@ -172,18 +220,13 @@ def create_page7(self) -> QWidget:
     self.from_whom_cb = QComboBox(self)
     self.from_whom_cb.setEditable(True)
     line_edit = self.from_whom_cb.lineEdit()
-    line_edit.setPlaceholderText("От кого получены:")
-    # Создаём палитру
+    line_edit.setPlaceholderText("От кого получены")
     palette = line_edit.palette()
-    # Цвет обычного текста
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.from_whom_cb.addItem(option)
-    # Сбрасываем текущий текст, чтобы поле было пустым
     self.from_whom_cb.clearEditText()
     right_form.addRow(QLabel("От кого получены:"), self.from_whom_cb)
 
@@ -192,58 +235,28 @@ def create_page7(self) -> QWidget:
     self.owners.setEditable(True)
     line_edit = self.owners.lineEdit()
     line_edit.setPlaceholderText("Владельцы")
-    # Создаём палитру
     palette = line_edit.palette()
-    # Цвет обычного текста
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.owners.addItem(option)
-    # Сбрасываем текущий текст, чтобы поле было пустым
     self.owners.clearEditText()
-    right_form.addRow(QLabel("Владельцы"), self.owners)
+    right_form.addRow(QLabel("Владельцы:"), self.owners)
 
-    # От кого получены
+    # Бизнес процессы
     self.buss_proc = QComboBox(self)
     self.buss_proc.setEditable(True)
     line_edit = self.buss_proc.lineEdit()
     line_edit.setPlaceholderText("Бизнес процессы")
-    # Создаём палитру
     palette = line_edit.palette()
-    # Цвет обычного текста
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.buss_proc.addItem(option)
-    # Сбрасываем текущий текст, чтобы поле было пустым
     self.buss_proc.clearEditText()
-    right_form.addRow(QLabel("Бизнес процессы"), self.buss_proc)
-
-     # Примечание
-    self.note_cb = QComboBox(self)
-    self.note_cb.setEditable(True)
-    line_edit = self.note_cb.lineEdit()
-    line_edit.setPlaceholderText("Примечание:")
-    # Создаём палитру
-    palette = line_edit.palette()
-    # Цвет обычного текста
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
-    # Применяем палитру к QLineEdit
-    line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.note_cb.addItem(option)
-    # Сбрасываем текущий текст, чтобы поле было пустым
-    self.note_cb.clearEditText()
-    right_form.addRow(QLabel("Примечание:"), self.note_cb)
-
+    right_form.addRow(QLabel("Бизнес процессы:"), self.buss_proc)
 
     # Дополнительно
     self.additional_le = QLineEdit(self)
@@ -254,7 +267,21 @@ def create_page7(self) -> QWidget:
     self.additional_le.setPalette(palette)
     right_form.addRow(QLabel("Дополнительно:"), self.additional_le)
 
-    # Номер сертификата соответствия
+    # Примечание
+    self.note_cb = QComboBox(self)
+    self.note_cb.setEditable(True)
+    line_edit = self.note_cb.lineEdit()
+    line_edit.setPlaceholderText("Примечание")
+    palette = line_edit.palette()
+    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
+    line_edit.setPalette(palette)
+    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
+        self.note_cb.addItem(option)
+    self.note_cb.clearEditText()
+    right_form.addRow(QLabel("Примечание:"), self.note_cb)
+
+    # Сертификат
     self.certnum_le = QLineEdit(self)
     self.certnum_le.setPlaceholderText("Номер сертификата соответствия")
     palette = self.certnum_le.palette()
@@ -263,28 +290,171 @@ def create_page7(self) -> QWidget:
     self.certnum_le.setPalette(palette)
     right_form.addRow(QLabel("Сертификат:"), self.certnum_le)
 
-    # Дополнительная дата (если нужно)
+    # Дополнительная дата
     self.dateedit2 = QtWidgets.QDateEdit(calendarPopup=True)
     self.dateedit2.setDateTime(datetime.today())
+    self.dateedit2.setStyleSheet("""
+        QDateEdit {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QDateEdit::drop-down {
+            background-color: #1e1e1e;
+        }
+        QCalendarWidget {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+        }
+        QCalendarWidget QAbstractItemView:enabled {
+            background-color: #121212;
+            color: #e0e0e0;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """)
     right_form.addRow(QLabel("Доп. дата:"), self.dateedit2)
 
+    right_form.setSpacing(10)
     h_layout.addWidget(right_group, 1)
 
-    # Шорткат для Enter
+    # --- Добавляем виджет с таблицей (SCZY) ---
+    data_table_widget = create_data_table7(self)
+    main_layout.addWidget(data_table_widget)
+
+    # --- Создаем таймер для периодического обновления таблицы ---
+    self.refresh_timer = QTimer(self)
+    self.refresh_timer.setInterval(5000)  # Интервал в мс, например, 60000 = 60 секунд
+    self.refresh_timer.timeout.connect(lambda: load_data7(self))
+    self.refresh_timer.start()
+
+    # --- Кнопки ---
     enter_shortcut = QShortcut(QKeySequence("Return"), page)
     enter_shortcut.activated.connect(lambda: save_value7(self))
-
-    # Кнопка для сохранения/обработки данных
     self.save_button = QPushButton("Сохранить", self)
+    self.save_button.setStyleSheet("background-color: #333333; color: white; font-size: 15px; border: 1px solid #555; border-radius: 4px;")
     right_form.addRow(self.save_button)
     self.save_button.clicked.connect(lambda: save_value7(self))
 
-    # Кнопка "Назад"
-    btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_second_page)
-    main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
+    escape_shortcut = QShortcut(QKeySequence("Escape"), page)
+    escape_shortcut.activated.connect(self.go_to_second_page)
+
 
     return page
+
+
+def create_data_table7(self) -> QWidget:
+    """
+    Создает виджет с поисковой строкой и таблицей для отображения последних записей из таблицы SCZY.
+    """
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.setSpacing(5)
+
+
+    # Поисковая строка
+    search_layout = QHBoxLayout()
+    search_label = QLabel("Поиск:")
+    self.search_line7 = QLineEdit()
+    self.search_line7.setPlaceholderText("Введите текст для поиска...")
+    search_layout.addWidget(search_label)
+    search_layout.addWidget(self.search_line7)
+    layout.addLayout(search_layout)
+
+    # Таблица для отображения данных SCZY
+    self.table_widget7 = QTableWidget()
+    headers = [
+        "ID", "Наименование СКЗИ", "Тип СКЗИ", "Версия", "Дата", "Рег. номер",
+        "Местонахождение", "ТОМ", "От кого получены", "Документ", "Договор",
+        "Владелец", "Владельцы", "Бизнес процессы", "Дополнительно",
+        "Примечание", "Сертификат", "Доп. дата"
+    ]
+
+    self.table_widget7.setColumnCount(len(headers))
+    self.table_widget7.setHorizontalHeaderLabels(headers)
+    layout.addWidget(self.table_widget7)
+
+    self.table_widget7.horizontalHeader().setStretchLastSection(True)
+    self.table_widget7.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+    # При изменении текста в поисковой строке перезагружаем данные
+    self.search_line7.textChanged.connect(lambda: load_data7(self))
+    load_data7(self)
+
+    return widget
+
+
+def load_data7(self):
+    """
+    Загружает из базы данных последние 50 записей из таблицы SCZY.
+    При наличии текста в поиске выполняется фильтрация по нескольким полям.
+    """
+    search_text = self.search_line7.text().strip()
+    try:
+        connection = pymysql.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = connection.cursor()
+        if search_text:
+            query = """
+                SELECT * FROM SCZY
+                WHERE CAST(ID AS CHAR) LIKE %s 
+                   OR name_of_SCZY LIKE %s 
+                   OR sczy_type LIKE %s 
+                   OR number_SCZY LIKE %s 
+                   OR owner LIKE %s 
+                   OR fullname_owner LIKE %s
+                ORDER BY ID DESC
+                LIMIT 50
+            """
+            like_pattern = f"%{search_text}%"
+            cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern, like_pattern, like_pattern))
+        else:
+            query = "SELECT * FROM SCZY ORDER BY ID DESC LIMIT 50"
+            cursor.execute(query)
+        results = cursor.fetchall()
+        connection.close()
+
+        self.table_widget7.setRowCount(len(results))
+        for row_idx, row_data in enumerate(results):
+            # Порядок колонок согласно структуре таблицы SCZY:
+            # ID, name_of_SCZY, sczy_type, number_SCZY, date, number_license, location,
+            # location_TOM_text, owner, date_and_number, contract, fullname_owner, owners,
+            # buss_proc, additional, note, number_certificate, date_expired
+            columns = [
+                row_data.get("ID"),
+                row_data.get("name_of_SCZY"),
+                row_data.get("sczy_type"),
+                row_data.get("number_SCZY"),
+                row_data.get("date"),
+                row_data.get("number_license"),
+                row_data.get("location"),
+                row_data.get("location_TOM_text"),
+                row_data.get("owner"),
+                row_data.get("date_and_number"),
+                row_data.get("contract"),
+                row_data.get("fullname_owner"),
+                row_data.get("owners"),
+                row_data.get("buss_proc"),
+                row_data.get("additional"),
+                row_data.get("note"),
+                row_data.get("number_certificate"),
+                row_data.get("date_expired")
+            ]
+            for col_idx, value in enumerate(columns):
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                self.table_widget7.setItem(row_idx, col_idx, item)
+    except Exception as e:
+        print("Ошибка загрузки данных для SCZY:", e)
 
 
 def save_value7(self):
@@ -295,12 +465,13 @@ def save_value7(self):
     date_str = self.dateedit.date().toPyDate().strftime('%Y-%m-%d')  # Дата
     reg_number = self.reg_number_le.text()                      # Рег. номер
     location_text = self.location.text()                        # Местонахождение (ТОМ)
-    from_whom = self.from_whom_cb.currentText()                 # От кого получены
-    doc_info = self.doc_info_le.text()                          # Документ
-    contract = self.contract.text()                             # Договор
-    owner_fio = self.owner_fio_le.text()                        # Владелец/процесс
-    owners = self.owners.currentText()                          # Владельцы (новое поле)
+    location_TOM_text = self.location_TOM.text()
+    from_whom_cb = self.from_whom_cb.currentText()                 # От кого получены
+    doc_info = self.doc_info_skzi.text()                          # Документ
+    contract = self.contract_skzi.text()                             # Договор
+    owners = self.owners.currentText()                          # Владельцы
     buss_proc = self.buss_proc.currentText()                    # Бизнес процессы
+    fullname_owner = self.fullname_owner.text()
     additional = self.additional_le.text()                      # Дополнительно
     note = self.note_cb.currentText()                           # Примечание
     certnum = self.certnum_le.text()                            # Сертификат
@@ -313,10 +484,11 @@ def save_value7(self):
         date_str,
         reg_number,
         location_text,
-        from_whom,
+        location_TOM_text,
+        from_whom_cb,
         doc_info,
         contract,
-        owner_fio,
+        fullname_owner,
         owners,
         buss_proc,
         additional,
@@ -325,34 +497,23 @@ def save_value7(self):
         dateedit2_str
     )
     clear_fields(self)
+    # Обновление таблицы сразу после сохранения
+    load_data7(self)
+
 
 def clear_fields(self):
     self.skzi_name_cb.clear()
-    # version of SCZY
     self.skzi_version_cb.clear()
-    # date give
-    self.dateedit.date()
-    # docs
-    self.doc_info_le.clear()
-    # owner
-    self.owner_fio_le.clear()
-    # reg number
+    self.dateedit.date()  # просто вызываем, без очистки
+    self.doc_info_skzi.clear()
     self.reg_number_le.clear()
-    # from who
     self.from_whom_cb.clear()
-    # note
     self.note_cb.clear()
-    # addit
     self.additional_le.clear()
-    #sertification
     self.certnum_le.clear()
-    # dop date
     self.dateedit2.clear()
-    # owners
     self.owners.clearEditText()
-    # location
+    self.fullname_owner.clear()
     self.location.clear()
-    # contract
-    self.contract.clear()
-    # buss proc
+    self.contract_skzi.clear()
     self.buss_proc.clearEditText()

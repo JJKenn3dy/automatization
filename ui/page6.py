@@ -1,102 +1,186 @@
 import getpass
 from datetime import datetime
+
+import pymysql
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QKeySequence, QShortcut, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit,
-    QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout
+    QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout,
+    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
 from logic.db import enter_license
-
+from PyQt6.QtCore import Qt, QDate, QTimer
 
 
 def create_page6(self) -> QWidget:
+    # ---- Создаём страницу и настраиваем тёмный фон ----
     page = QWidget()
+    page.setStyleSheet("background-color: #121212; color: white;")
     main_layout = QVBoxLayout(page)
     main_layout.setContentsMargins(20, 20, 20, 20)
     main_layout.setSpacing(15)
 
+    # 4. Подключаемся к БД (при необходимости можно использовать подключение для других операций)
+    connection = pymysql.connect(
+        host="localhost",
+        port=3306,
+        user="newuser",
+        password="852456qaz",
+        database="IB",
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    connection.close()  # Для примера сразу закрываем
+
+    escape_shortcut = QShortcut(QKeySequence("Escape"), page)
+    escape_shortcut.activated.connect(self.go_to_second_page)
+    btn_back = QPushButton("Назад")
+    btn_back.setStyleSheet("background-color: #333; color: white; padding: 5px 10px; border-radius: 3px;")
+    btn_back.clicked.connect(self.go_to_second_page)
+    main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
+
     # Заголовок
     header_label = QLabel("Лицензии")
     header_label.setWordWrap(True)
-    header_label.setStyleSheet("font-size: 20px; color: #76787A;")
+    header_label.setStyleSheet("font-size: 20px; color: white;")
     header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     main_layout.addWidget(header_label)
 
-    # Основной горизонтальный лэйаут (для левого и правого блоков)
+    # Основной горизонтальный лэйаут (левая и правая части формы)
     h_layout = QHBoxLayout()
     h_layout.setSpacing(30)
     main_layout.addLayout(h_layout)
 
     # ---------- ЛЕВЫЙ БЛОК (Данные заявки) ----------
     left_group = QGroupBox("Данные заявки")
+    left_group.setStyleSheet("""
+        QGroupBox {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            color: white;
+        }
+        QLabel {
+            color: white;
+        }
+    """)
     left_group_layout = QFormLayout()
     left_group_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
     left_group.setLayout(left_group_layout)
 
-    # Номер заявки
+    # ---- Номер заявки ----
     self.enter_number = QLineEdit(self)
     self.enter_number.setPlaceholderText("Введите номер заявки")
-    # Создаём палитру
+    # Настройка цвета текста и подсказки остаётся прежней через palette
     palette = self.enter_number.palette()
-    # Цвет обычного текста (белый)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     self.enter_number.setPalette(palette)
     left_group_layout.addRow(QLabel("Номер заявки:"), self.enter_number)
 
-    # Наименование ПО СКЗИ
+    # Подключаем проверку при изменении текста: поле должно состоять из цифр и не быть пустым.
+    self.enter_number.textChanged.connect(
+        lambda: update_line_edit_style(
+            self.enter_number,
+            not (self.enter_number.text() and self.enter_number.text().isdigit())
+        )
+    )
+
+    # ---- Комбобокс "Наименование ПО СКЗИ" ----
     self.combobox = QComboBox(self)
     self.combobox.setEditable(True)
+    self.combobox.setStyleSheet("""
+           QComboBox {
+               background-color: #1e1e1e;
+               color: white;
+               border: 1px solid #444;
+               border-radius: 4px;
+               padding: 2px;
+           }
+           QComboBox QAbstractItemView {
+               background-color: #121212;
+               color: white;
+               selection-background-color: #444;
+               selection-color: white;
+           }
+       """)
     line_edit = self.combobox.lineEdit()
     line_edit.setPlaceholderText("Наименование ПО СКЗИ")
-    # Создаём палитру
     palette = line_edit.palette()
-    # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
         self.combobox.addItem(option)
     self.combobox.clearEditText()
     left_group_layout.addRow(QLabel("Выберите ПО СКЗИ:"), self.combobox)
 
-    # Ключ (доп. поле)
+    # Проверка комбобокса при изменении текста:
+    self.combobox.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.combobox,
+            len(self.combobox.currentText().strip()) == 0
+        )
+    )
+
+    # ---- Поле "Ключ" ----
     self.enter_key = QLineEdit(self)
     self.enter_key.setPlaceholderText("Введите ключ (например, test)")
     palette = self.enter_key.palette()
-    # Цвет обычного текста (белый)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный)
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     self.enter_key.setPalette(palette)
     left_group_layout.addRow(QLabel("Ключ:"), self.enter_key)
 
-    # Второй ComboBox (область)
+    self.enter_key.textChanged.connect(
+        lambda: update_line_edit_style(self.enter_key, len(self.enter_key.text().strip()) == 0)
+    )
+
+    # ---- Комбобокс "Область применения" ----
     self.scope = QComboBox(self)
     self.scope.setEditable(True)
+    self.scope.setStyleSheet("""
+           QComboBox {
+               background-color: #1e1e1e;
+               color: white;
+               border: 1px solid #444;
+               border-radius: 4px;
+               padding: 2px;
+           }
+           QComboBox QAbstractItemView {
+               background-color: #121212;
+               color: white;
+               selection-background-color: #444;
+               selection-color: white;
+           }
+       """)
     line_edit = self.scope.lineEdit()
-    self.scope.setPlaceholderText("Область применения")
-    # Создаём палитру
+    line_edit.setPlaceholderText("Область применения")
     palette = line_edit.palette()
-    # Цвет обычного текста (чёрный)
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    # Цвет placeholder-текста (зелёный
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    # Применяем палитру к QLineEdit
     line_edit.setPalette(palette)
     for option in ["Option 1", "Option 2", "Option 3"]:
         self.scope.addItem(option)
     self.scope.clearEditText()
     left_group_layout.addRow(QLabel("Область/сфера:"), self.scope)
 
-    # ФИО пользователя
+    self.scope.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.scope,
+            len(self.scope.currentText().strip()) == 0
+        )
+    )
+
+    # ---- Поле "ФИО пользователя" ----
     self.input_fio_user = QLineEdit(self)
     self.input_fio_user.setPlaceholderText("Введите ФИО пользователя")
     palette = self.input_fio_user.palette()
@@ -105,47 +189,53 @@ def create_page6(self) -> QWidget:
     self.input_fio_user.setPalette(palette)
     left_group_layout.addRow(QLabel("ФИО пользователя:"), self.input_fio_user)
 
-    # ФИО пользователя
+    self.input_fio_user.textChanged.connect(
+        lambda: update_line_edit_style(self.input_fio_user, len(self.input_fio_user.text().strip()) <= 3)
+    )
+
+    # ---- Поле "Имя APM/IP" ----
     self.input_apm = QLineEdit(self)
     self.input_apm.setPlaceholderText("Введите имя APM/IP")
     palette = self.input_apm.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.input_apm.setPalette(palette)
-    left_group_layout.addRow(QLabel("Имя AP/IP"), self.input_apm)
+    left_group_layout.addRow(QLabel("Имя AP/IP:"), self.input_apm)
 
-    h_layout.addWidget(left_group, 1)  # Пропорционально занимает часть
+    self.input_apm.textChanged.connect(
+        lambda: update_line_edit_style(self.input_apm, len(self.input_apm.text().strip()) <= 3)
+    )
 
-    # ---------- ПРАВЫЙ БЛОК (Информация ИТ) ----------
-    right_group = QGroupBox("Информация об установке")
-    right_group_layout = QFormLayout()
-    right_group_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-    right_group.setLayout(right_group_layout)
-
-    # Календарь (дата)
-    self.dateedit = QtWidgets.QDateEdit(calendarPopup=True)
-    self.dateedit.setDateTime(datetime.today())
-    self.dateedit.setMaximumSize(100, 40)
-    right_group_layout.addRow(QLabel("Дата:"), self.dateedit)
-
-    # ФИО сотрудника ИТ
+    # ---- Поле "Сотрудник ИБ" (в правой части) ----
     self.user = QLineEdit(self)
-    self.user.setPlaceholderText("Введите ФИО сотрудника ИТ")
+    self.user.setPlaceholderText("Введите ФИО сотрудника ИБ")
     palette = self.user.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.user.setPalette(palette)
-    right_group_layout.addRow(QLabel("Сотрудник ИТ:"), self.user)
+    right_group_layout.addRow(QLabel("Сотрудник ИБ:"), self.user)
 
-    # Статус лицензии (радиокнопки) - отдельный QGroupBox
+    self.user.textChanged.connect(
+        lambda: update_line_edit_style(self.user, len(self.user.text().strip()) <= 3)
+    )
+
+    # ---- Обработка изменения даты в QDateEdit (опционально) ----
+    self.dateedit.dateChanged.connect(
+        lambda date: self.dateedit.setStyleSheet(
+            "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
+            if not date.isValid()
+            else "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+        )
+    )
+    # ---- Статус лицензии (радиокнопки) ----
     self.status_group = QGroupBox("Статус лицензии")
+    self.status_group.setStyleSheet("QGroupBox { background-color: transparent; border: none; }")
     status_layout = QVBoxLayout()
     self.status_group.setLayout(status_layout)
-
     radio_style = """
         QRadioButton {
             font-size: 16px;
-            color: rgb(118, 120, 122);
+            color: white;
             padding: 5px;
         }
         QRadioButton:checked {
@@ -162,29 +252,35 @@ def create_page6(self) -> QWidget:
     self.rb_installed.setStyleSheet(radio_style)
     self.rb_taken = QRadioButton("Изьято")
     self.rb_taken.setStyleSheet(radio_style)
-
     status_layout.addWidget(self.rb_issued)
     status_layout.addWidget(self.rb_installed)
     status_layout.addWidget(self.rb_taken)
-
-    right_group_layout.addRow( self.status_group)
+    right_group_layout.addRow(self.status_group)
 
     h_layout.addWidget(right_group, 1)
 
     # ---------- Дополнительные поля (изъятие/уничтожение) ----------
-    # Группа, которая будет показываться/скрываться
     self.extra_group = QGroupBox("Дополнительные сведения")
+    self.extra_group.setStyleSheet("""
+        QGroupBox {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            color: white;
+        }
+        QLabel {
+            color: white;
+        }
+    """)
     extra_layout = QFormLayout()
     self.extra_group.setLayout(extra_layout)
-    self.extra_group.setVisible(False)  # Изначально скрываем
-
-    self.input_mark = QLineEdit(self)
-    self.input_mark.setPlaceholderText("Введите отметку об изъятии/уничтожении...")
-    palette = self.input_mark.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.input_mark.setPalette(palette)
-    extra_layout.addRow(QLabel("Отметка:"), self.input_mark)
+    self.extra_group.setVisible(False)
 
     self.input_date = QLineEdit(self)
     self.input_date.setPlaceholderText("Дата, расписка, номер акта об уничтожении...")
@@ -193,54 +289,198 @@ def create_page6(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.input_date.setPalette(palette)
     extra_layout.addRow(QLabel("Документ/дата:"), self.input_date)
-
     main_layout.addWidget(self.extra_group)
 
-    # Кнопка "Назад"
-    btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_second_page)
-    main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignCenter)
+
+
+    # --- Кнопки и ярлыки ---
 
     enter_shortcut = QShortcut(QKeySequence("Return"), page)
     enter_shortcut.activated.connect(lambda: save_values6(self))
-
-    # Подключаем сигналы радиокнопок к функции переключения видимости
     self.rb_issued.toggled.connect(self.update_extra_fields_visibility)
     self.rb_installed.toggled.connect(self.update_extra_fields_visibility)
     self.rb_taken.toggled.connect(self.update_extra_fields_visibility)
-
-    # Кнопка для сохранения/обработки данных
+    # Например, подключение кнопки "Сохранить":
     self.save_button = QPushButton("Сохранить", self)
+    self.save_button.setStyleSheet("background-color: #333; color: white; padding: 5px 10px; border-radius: 3px;")
     right_group_layout.addRow(self.save_button)
     self.save_button.clicked.connect(lambda: save_values6(self))
 
+    # --- Добавление внизу страницы виджета с таблицей и поиском ---
+    data_table_widget = create_data_table(self)
+    main_layout.addWidget(data_table_widget)
+
+    # --- Создаем таймер для периодического обновления таблицы ---
+    self.refresh_timer = QTimer(self)
+    self.refresh_timer.setInterval(60000)  # Интервал в миллисекундах, 60000 = 60 секунд
+    self.refresh_timer.timeout.connect(lambda: load_data(self))
+    self.refresh_timer.start()
 
     return page
 
 
-def save_values6(self):
-    enter_number = self.enter_number.text()
-    combobox = self.combobox.currentText()
-    enter_key = self.enter_key.text()
-    scope = self.scope.currentText()
-    input_fio_user = self.input_fio_user.text()
-    name_apm = self.input_apm.text()
-    dateedit = self.dateedit.date()
-    user = self.user.text()
-    # Определяем, какая радиокнопка выбрана
-    if self.rb_issued.isChecked():
-        status = 1
-    elif self.rb_installed.isChecked():
-        status = 2
-    elif self.rb_taken.isChecked():
-        status = 3
-    else:
-        status = 0  # Если ни одна не выбрана
+def create_data_table(self) -> QWidget:
+    """
+    Создает виджет с поисковой строкой и таблицей для отображения последних записей из таблицы License.
+    """
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.setSpacing(5)
 
-    input_mark = self.input_mark.text()
+    # Поисковая строка
+    search_layout = QHBoxLayout()
+    search_label = QLabel("Поиск:")
+    self.search_line = QLineEdit()
+    self.search_line.setPlaceholderText("Введите текст для поиска...")
+    search_layout.addWidget(search_label)
+    search_layout.addWidget(self.search_line)
+    layout.addLayout(search_layout)
+
+    # Таблица для отображения данных
+    self.table_widget = QTableWidget()
+    # Количество колонок согласно структуре таблицы License
+    self.table_widget.setColumnCount(12)
+    self.table_widget.setRowCount(5)
+    self.table_widget.setHorizontalHeaderLabels([
+        "ID", "Номер", "ПО", "Номер лицензии", "Область применения",
+        "ФИО пользователя", "APM", "Дата", "ФИО IT", "Статус", "Отметка", "Дата документа"
+    ])
+    self.table_widget.horizontalHeader().setStretchLastSection(True)
+    self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    layout.addWidget(self.table_widget)
+
+    # При изменении текста в поиске перезагружаем данные
+    self.search_line.textChanged.connect(lambda: load_data(self))
+    # Первоначальная загрузка данных
+    load_data(self)
+
+    return widget
+
+
+def load_data(self):
+    """
+    Загружает из базы данных последние 50 записей из таблицы License.
+    Если введен текст в поисковой строке, выполняется фильтрация по полям: номер заявки, наименование ПО, ФИО пользователя.
+    """
+    search_text = self.search_line.text().strip()
+    try:
+        connection = pymysql.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = connection.cursor()
+        if search_text:
+            query = """
+                SELECT * FROM License
+                WHERE CAST(number AS CHAR) LIKE %s 
+                   OR name_of_soft LIKE %s 
+                   OR fullname LIKE %s
+                ORDER BY ID DESC
+                LIMIT 50
+            """
+            like_pattern = f"%{search_text}%"
+            cursor.execute(query, (like_pattern, like_pattern, like_pattern))
+        else:
+            query = "SELECT * FROM License ORDER BY ID DESC LIMIT 50"
+            cursor.execute(query)
+        results = cursor.fetchall()
+        connection.close()
+        self.table_widget.setStyleSheet("QTableWidget { font-size: 11pt; }")
+        self.table_widget.setHorizontalHeaderLabels
+        self.table_widget.setRowCount(len(results))
+        for row_idx, row_data in enumerate(results):
+            # Порядок колонок: ID, number, name_of_soft, number_lic, scop_using,
+            # fullname, name_apm, date, fullname_it, status, input_mark, input_date
+            columns = [
+                row_data.get("ID"),
+                row_data.get("number"),
+                row_data.get("name_of_soft"),
+                row_data.get("number_lic"),
+                row_data.get("scop_using"),
+                row_data.get("fullname"),
+                row_data.get("name_apm"),
+                row_data.get("date"),
+                row_data.get("fullname_it"),
+                row_data.get("status"),
+                row_data.get("input_mark"),
+                row_data.get("input_date"),
+            ]
+
+            for col_idx, value in enumerate(columns):
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                self.table_widget.setItem(row_idx, col_idx, item)
+
+        for row in range(self.table_widget.rowCount()):
+            self.table_widget.setRowHeight(row, 40)
+    except Exception as e:
+        print("Ошибка загрузки данных:", e)
+
+
+def save_values6(self):
+    errors = []
+
+    # Проверка всех полей и сбор ошибок
+    enter_number = self.enter_number.text()
+    if enter_number.isalpha() or len(enter_number) == 0:
+        errors.append("Поле 'Номер' должно содержать цифры и не быть пустым")
+
+    combobox = self.combobox.currentText()
+    if len(combobox) == 0:
+        errors.append("Не выбрано значение в комбобоксе")
+
+    enter_key = self.enter_key.text()
+    if len(enter_key) == 0:
+        errors.append("Поле 'Ключ' не может быть пустым")
+
+    scope = self.scope.currentText()
+    if len(scope) == 0:
+        errors.append("Не выбрана 'Область'")
+
+    input_fio_user = self.input_fio_user.text()
+    if len(input_fio_user) <= 3:
+        errors.append("ФИО пользователя должно содержать более 3 символов")
+
+    name_apm = self.input_apm.text()
+    if len(name_apm) <= 3:
+        errors.append("Название АРМ должно содержать более 3 символов")
+
+    dateedit = self.dateedit.date()
+    # Проверка на валидную дату (этот пример может потребовать доработки)
+    if not dateedit.isValid():
+        errors.append("Неверная дата")
+
+    user = self.user.text()
+    if len(user) <= 3:
+        errors.append("Имя пользователя должно содержать более 3 символов")
+
+    # Проверка radio buttons
+    if not (self.rb_issued.isChecked() or self.rb_installed.isChecked() or self.rb_taken.isChecked()):
+        errors.append("Не выбран статус")
+    else:
+        if self.rb_issued.isChecked():
+            status = 1
+            input_mark = ""
+        elif self.rb_installed.isChecked():
+            status = 2
+            input_mark = ""
+        elif self.rb_taken.isChecked():
+            status = 3
+            input_mark = "True"
+
+    # Если есть ошибки - показать их и прервать сохранение
+    if errors:
+        error_message = "Обнаружены ошибки:\n\n" + "\n".join(f"• {error}" for error in errors)
+        QMessageBox.critical(self, "Ошибка заполнения", error_message)
+        return
+
+    # Если ошибок нет - продолжить сохранение
     input_date = self.input_date.text()
 
-    # Собираем данные для отладки (пример)
     data = {
         "enter_number": enter_number,
         "combobox": combobox,
@@ -254,17 +494,15 @@ def save_values6(self):
         "input_mark": input_mark,
         "input_date": input_date,
     }
+
     print("Сохранённые данные:", data)
-
-    # Преобразуем QDate в строку формата 'YYYY-MM-DD'
     dateedit_str = dateedit.toPyDate().strftime('%Y-%m-%d')
-
-    # Вызываем функцию сохранения в БД
     enter_license(enter_number, combobox, enter_key, scope, input_fio_user,
                   name_apm, dateedit_str, user, status, input_mark, input_date)
-
-    # После сохранения очищаем все поля
     clear_fields(self)
+    load_data(self)
+
+    QMessageBox.information(self, "Успех", "Данные успешно сохранены")
 
 
 def clear_fields(self):
@@ -273,13 +511,11 @@ def clear_fields(self):
     self.input_fio_user.clear()
     self.input_apm.clear()
     self.user.clear()
-    self.input_mark.clear()
     self.input_date.clear()
     self.combobox.clearEditText()
     self.combobox.setCurrentIndex(-1)
     self.scope.clearEditText()
     self.scope.setCurrentIndex(-1)
-    from PyQt6.QtCore import QDate
     self.dateedit.setDate(QDate.currentDate())
     for rb in (self.rb_issued, self.rb_installed, self.rb_taken):
         rb.setAutoExclusive(False)
@@ -290,7 +526,71 @@ def clear_fields(self):
 
 def update_extra_fields_visibility(self):
     """
-    Если нажата радиокнопка "Изьято", то показываем блок
-    'Дополнительные сведения'. Иначе скрываем.
+    Показывает блок 'Дополнительные сведения', если выбрана опция "Изьято".
     """
     self.extra_group.setVisible(self.rb_taken.isChecked())
+
+
+def update_line_edit_style(line_edit, condition_error: bool):
+    """
+    Устанавливает стиль для QLineEdit:
+      - если condition_error == True, рамка красная (ошибка)
+      - иначе, стандартная рамка.
+    """
+    if condition_error:
+        style = (
+            "background-color: #1e1e1e; "
+            "border: 1px solid red; "
+            "border-radius: 4px; "
+            "padding: 2px; "
+            "color: white;"
+        )
+    else:
+        style = (
+            "background-color: #1e1e1e; "
+            "border: 1px solid #444; "
+            "border-radius: 4px; "
+            "padding: 2px; "
+            "color: white;"
+        )
+    line_edit.setStyleSheet(style)
+
+def update_combobox_style(combo_box, condition_error: bool):
+    """
+    Устанавливает стиль для QComboBox:
+      - если condition_error == True, рамка красная
+      - иначе, стандартная рамка.
+    """
+    if condition_error:
+        style = """
+            QComboBox {
+                background-color: #1e1e1e;
+                color: white;
+                border: 1px solid red;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #121212;
+                color: white;
+                selection-background-color: #444;
+                selection-color: white;
+            }
+        """
+    else:
+        style = """
+            QComboBox {
+                background-color: #1e1e1e;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #121212;
+                color: white;
+                selection-background-color: #444;
+                selection-color: white;
+            }
+        """
+    combo_box.setStyleSheet(style)
