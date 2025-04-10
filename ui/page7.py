@@ -11,6 +11,75 @@ import pymysql  # Добавляем импорт, если ещё не импо
 from PyQt6.QtWidgets import QTableWidgetItem
 from PyQt6.QtCore import QTimer
 
+def update_line_edit_style(line_edit, condition_error: bool):
+    if line_edit.hasFocus():
+        # Применяем валидацию, если поле в фокусе
+        if condition_error:
+            style = (
+                "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
+            )
+        else:
+            style = (
+                "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+            )
+    else:
+        # Если поле не в фокусе, возвращаем стандартное оформление
+        style = (
+            "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+        )
+    line_edit.setStyleSheet(style)
+
+
+def update_combobox_style(combo_box, condition_error: bool):
+    """
+    Устанавливает стиль для QComboBox:
+      - если поле в фокусе и condition_error == True, рамка красная
+      - иначе (либо поле не в фокусе, либо condition_error == False), стандартная рамка.
+    """
+    # Стандартный стиль комбобокса (без ошибки)
+    default_style = """
+        QComboBox {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #121212;
+            color: white;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """
+    # Стиль при ошибке
+    error_style = """
+        QComboBox {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid red;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #121212;
+            color: white;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """
+    # Если комбобокс находится в фокусе, используем проверку состояния,
+    # иначе всегда отображаем стандартный стиль.
+    if combo_box.hasFocus():
+        if condition_error:
+            style = error_style
+        else:
+            style = default_style
+    else:
+        style = default_style
+
+    combo_box.setStyleSheet(style)
+
 
 def create_page7(self) -> QWidget:
     page = QWidget()
@@ -74,6 +143,13 @@ def create_page7(self) -> QWidget:
         self.skzi_name_cb.addItem(option)
     self.skzi_name_cb.clearEditText()
     left_form.addRow(QLabel("Наименование СКЗИ:"), self.skzi_name_cb)
+    # Подключаем проверку комбобокса
+    self.skzi_name_cb.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.skzi_name_cb,
+            len(self.skzi_name_cb.currentText().strip()) == 0
+        )
+    )
 
     # Тип СКЗИ (не редактируемый)
     self.skzi_type = QComboBox(self)
@@ -87,6 +163,13 @@ def create_page7(self) -> QWidget:
         self.skzi_type.addItem(option)
     self.skzi_type.clearEditText()
     left_form.addRow(QLabel("Тип СКЗИ:"), self.skzi_type)
+    # Подключаем проверку комбобокса
+    self.skzi_type.currentTextChanged.connect(
+        lambda text: update_combobox_style(
+            self.skzi_type,
+            len(text.strip()) == 0
+        )
+    )
 
     # Версия СКЗИ
     self.skzi_version_cb = QComboBox(self)
@@ -102,43 +185,77 @@ def create_page7(self) -> QWidget:
         self.skzi_version_cb.addItem(option)
     self.skzi_version_cb.clearEditText()
     left_form.addRow(QLabel("Версия СКЗИ:"), self.skzi_version_cb)
+    self.skzi_version_cb.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.skzi_version_cb,
+            len(self.skzi_version_cb.currentText().strip()) == 0
+        )
+    )
 
     # Календарь (Дата)
-    self.dateedit = QtWidgets.QDateEdit(calendarPopup=True)
-    self.dateedit.setDateTime(datetime.today())
-    self.dateedit.setStyleSheet("""
-        QDateEdit {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QDateEdit::drop-down {
-            background-color: #1e1e1e;
-        }
-        QCalendarWidget {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-        }
-        QCalendarWidget QToolButton {
-            background-color: #333;
-            color: white;
-            margin: 5px;
-            border-radius: 3px;
-        }
-        QCalendarWidget QToolButton:hover {
-            background-color: #444;
-        }
-        QCalendarWidget QAbstractItemView:enabled {
-            background-color: #121212;
-            color: #e0e0e0;
-            selection-background-color: #444;
-            selection-color: white;
-        }
+    self.dateedit7 = QtWidgets.QDateEdit(calendarPopup=True)
+    self.dateedit7.setDateTime(datetime.today())
+    self.dateedit7.setStyleSheet("""
+    QDateEdit {
+        background-color: #1e1e1e;
+        color: white;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 2px;
+    }
+    QDateEdit::drop-down {
+        background-color: #1e1e1e;
+    }
+    QDateEdit::down-arrow {
+        width: 8px;
+        height: 8px;
+    }
+    QCalendarWidget {
+        background-color: #1e1e1e;
+        color: white;
+        border: 1px solid #444;
+    }
+    QCalendarWidget QToolButton {
+        background-color: #333;
+        color: white;
+        margin: 5px;
+        border-radius: 3px;
+    }
+    QCalendarWidget QToolButton:hover {
+        background-color: #444;
+    }
+    QCalendarWidget QToolButton:disabled {
+        background-color: #777;
+    }
+    QCalendarWidget QSpinBox {
+        background-color: #333;
+        color: white;
+        selection-background-color: #444;
+        selection-color: white;
+    }
+    QCalendarWidget QSpinBox:hover {
+        background-color: #444;
+    }
+    QCalendarWidget QAbstractItemView:enabled {
+        background-color: #121212;
+        color: #e0e0e0;
+        selection-background-color: #444;
+        selection-color: white;
+    }
+    QCalendarWidget QAbstractItemView:disabled {
+        color: #666;
+    }
     """)
-    left_form.addRow(QLabel("Дата:"), self.dateedit)
+    left_form.addRow(QLabel("Дата:"), self.dateedit7)
+
+    # Подключаем проверку изменения даты
+    self.dateedit7.dateChanged.connect(
+        lambda date: self.dateedit7.setStyleSheet(
+            "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
+            if not date.isValid()
+            else "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+        )
+    )
 
     # Местонахождение ПО
     self.location = QLineEdit(self)
@@ -148,6 +265,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.location.setPalette(palette)
     left_form.addRow(QLabel("Местонахождение:"), self.location)
+    self.location.textChanged.connect(
+        lambda: update_line_edit_style(self.location, len(self.location.text().strip()) <= 3)
+    )
 
     # ТОМ
     self.location_TOM = QLineEdit(self)
@@ -157,6 +277,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.location_TOM.setPalette(palette)
     left_form.addRow(QLabel("ТОМ:"), self.location_TOM)
+    self.location_TOM.textChanged.connect(
+        lambda: update_line_edit_style(self.location_TOM, len(self.location_TOM.text().strip()) <= 3)
+    )
 
     # Документ (дата и номер)
     self.doc_info_skzi = QLineEdit(self)
@@ -166,6 +289,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.doc_info_skzi.setPalette(palette)
     left_form.addRow(QLabel("Документ:"), self.doc_info_skzi)
+    self.doc_info_skzi.textChanged.connect(
+        lambda: update_line_edit_style(self.doc_info_skzi, len(self.doc_info_skzi.text().strip()) <= 3)
+    )
 
     # Договор
     self.contract_skzi = QLineEdit(self)
@@ -175,6 +301,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.contract_skzi.setPalette(palette)
     left_form.addRow(QLabel("Договор:"), self.contract_skzi)
+    self.contract_skzi.textChanged.connect(
+        lambda: update_line_edit_style(self.contract_skzi, len(self.contract_skzi.text().strip()) <= 3)
+    )
 
     # Владелец (fullname_owner)
     self.fullname_owner = QLineEdit(self)
@@ -184,6 +313,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.fullname_owner.setPalette(palette)
     left_form.addRow(QLabel("Владелец:"), self.fullname_owner)
+    self.fullname_owner.textChanged.connect(
+        lambda: update_line_edit_style(self.fullname_owner, len(self.fullname_owner.text().strip()) <= 3)
+    )
 
     left_form.setSpacing(10)
     h_layout.addWidget(left_group, 1)
@@ -217,6 +349,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.reg_number_le.setPalette(palette)
     right_form.addRow(QLabel("Рег. номер:"), self.reg_number_le)
+    self.reg_number_le.textChanged.connect(
+        lambda: update_line_edit_style(self.reg_number_le, len(self.reg_number_le.text().strip()) <= 3)
+    )
 
     # От кого получены
     self.from_whom_cb = QComboBox(self)
@@ -231,6 +366,12 @@ def create_page7(self) -> QWidget:
         self.from_whom_cb.addItem(option)
     self.from_whom_cb.clearEditText()
     right_form.addRow(QLabel("От кого получены:"), self.from_whom_cb)
+    self.from_whom_cb.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.from_whom_cb,
+            len(self.from_whom_cb.currentText().strip()) == 0
+        )
+    )
 
     # Владельцы
     self.owners = QComboBox(self)
@@ -245,6 +386,12 @@ def create_page7(self) -> QWidget:
         self.owners.addItem(option)
     self.owners.clearEditText()
     right_form.addRow(QLabel("Владельцы:"), self.owners)
+    self.owners.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.owners,
+            len(self.owners.currentText().strip()) == 0
+        )
+    )
 
     # Бизнес процессы
     self.buss_proc = QComboBox(self)
@@ -259,6 +406,12 @@ def create_page7(self) -> QWidget:
         self.buss_proc.addItem(option)
     self.buss_proc.clearEditText()
     right_form.addRow(QLabel("Бизнес процессы:"), self.buss_proc)
+    self.buss_proc.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.buss_proc,
+            len(self.buss_proc.currentText().strip()) == 0
+        )
+    )
 
     # Дополнительно
     self.additional_le = QLineEdit(self)
@@ -268,6 +421,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.additional_le.setPalette(palette)
     right_form.addRow(QLabel("Дополнительно:"), self.additional_le)
+    self.additional_le.textChanged.connect(
+        lambda: update_line_edit_style(self.additional_le, len(self.additional_le.text().strip()) <= 3)
+    )
 
     # Примечание
     self.note_cb = QComboBox(self)
@@ -282,6 +438,12 @@ def create_page7(self) -> QWidget:
         self.note_cb.addItem(option)
     self.note_cb.clearEditText()
     right_form.addRow(QLabel("Примечание:"), self.note_cb)
+    self.note_cb.lineEdit().textChanged.connect(
+        lambda: update_combobox_style(
+            self.note_cb,
+            len(self.note_cb.currentText().strip()) == 0
+        )
+    )
 
     # Сертификат
     self.certnum_le = QLineEdit(self)
@@ -291,6 +453,9 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.certnum_le.setPalette(palette)
     right_form.addRow(QLabel("Сертификат:"), self.certnum_le)
+    self.certnum_le.textChanged.connect(
+        lambda: update_line_edit_style(self.certnum_le, len(self.certnum_le.text().strip()) <= 3)
+    )
 
     # Дополнительная дата
     self.dateedit2 = QtWidgets.QDateEdit(calendarPopup=True)
@@ -319,6 +484,14 @@ def create_page7(self) -> QWidget:
         }
     """)
     right_form.addRow(QLabel("Доп. дата:"), self.dateedit2)
+    # Подключаем проверку изменения даты
+    self.dateedit2.dateChanged.connect(
+        lambda date: self.dateedit2.setStyleSheet(
+            "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
+            if not date.isValid()
+            else "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+        )
+    )
 
     right_form.setSpacing(10)
     h_layout.addWidget(right_group, 1)
@@ -464,7 +637,7 @@ def save_value7(self):
     skzi_name = self.skzi_name_cb.currentText()               # Наименование ПО
     skzi_type = self.skzi_type.currentText()                    # Тип СКЗИ
     skzi_version = self.skzi_version_cb.currentText()           # Версия СКЗИ
-    date_str = self.dateedit.date().toPyDate().strftime('%Y-%m-%d')  # Дата
+    date_str = self.dateedit7.date().toPyDate().strftime('%Y-%m-%d')  # Дата
     reg_number = self.reg_number_le.text()                      # Рег. номер
     location_text = self.location.text()                        # Местонахождение (ТОМ)
     location_TOM_text = self.location_TOM.text()
@@ -506,7 +679,7 @@ def save_value7(self):
 def clear_fields(self):
     self.skzi_name_cb.clear()
     self.skzi_version_cb.clear()
-    self.dateedit.date()  # просто вызываем, без очистки
+    self.dateedit7.date()  # просто вызываем, без очистки
     self.doc_info_skzi.clear()
     self.reg_number_le.clear()
     self.from_whom_cb.clear()

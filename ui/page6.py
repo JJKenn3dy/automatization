@@ -14,26 +14,20 @@ from logic.db import enter_license
 
 
 def update_line_edit_style(line_edit, condition_error: bool):
-    """
-    Устанавливает стиль для QLineEdit:
-      - если condition_error == True, рамка красная (ошибка)
-      - иначе, стандартная рамка.
-    """
-    if condition_error:
-        style = (
-            "background-color: #1e1e1e; "
-            "border: 1px solid red; "
-            "border-radius: 4px; "
-            "padding: 2px; "
-            "color: white;"
-        )
+    if line_edit.hasFocus():
+        # Применяем валидацию, если поле в фокусе
+        if condition_error:
+            style = (
+                "background-color: #1e1e1e; border: 1px solid red; border-radius: 4px; padding: 2px; color: white;"
+            )
+        else:
+            style = (
+                "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
+            )
     else:
+        # Если поле не в фокусе, возвращаем стандартное оформление
         style = (
-            "background-color: #1e1e1e; "
-            "border: 1px solid #444; "
-            "border-radius: 4px; "
-            "padding: 2px; "
-            "color: white;"
+            "background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px; color: white;"
         )
     line_edit.setStyleSheet(style)
 
@@ -41,42 +35,53 @@ def update_line_edit_style(line_edit, condition_error: bool):
 def update_combobox_style(combo_box, condition_error: bool):
     """
     Устанавливает стиль для QComboBox:
-      - если condition_error == True, рамка красная
-      - иначе, стандартная рамка.
+      - если поле в фокусе и condition_error == True, рамка красная
+      - иначе (либо поле не в фокусе, либо condition_error == False), стандартная рамка.
     """
-    if condition_error:
-        style = """
-            QComboBox {
-                background-color: #1e1e1e;
-                color: white;
-                border: 1px solid red;
-                border-radius: 4px;
-                padding: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #121212;
-                color: white;
-                selection-background-color: #444;
-                selection-color: white;
-            }
-        """
+    # Стандартный стиль комбобокса (без ошибки)
+    default_style = """
+        QComboBox {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #121212;
+            color: white;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """
+    # Стиль при ошибке
+    error_style = """
+        QComboBox {
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid red;
+            border-radius: 4px;
+            padding: 2px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #121212;
+            color: white;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+    """
+    # Если комбобокс находится в фокусе, используем проверку состояния,
+    # иначе всегда отображаем стандартный стиль.
+    if combo_box.hasFocus():
+        if condition_error:
+            style = error_style
+        else:
+            style = default_style
     else:
-        style = """
-            QComboBox {
-                background-color: #1e1e1e;
-                color: white;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #121212;
-                color: white;
-                selection-background-color: #444;
-                selection-color: white;
-            }
-        """
+        style = default_style
+
     combo_box.setStyleSheet(style)
+
 
 
 def create_page6(self) -> QWidget:
@@ -570,11 +575,11 @@ def save_values6(self):
     # Проверка всех полей и сбор ошибок
     enter_number = self.enter_number.text()
     if enter_number.isalpha() or len(enter_number) == 0:
-        errors.append("Поле 'Номер' должно содержать цифры и не быть пустым")
+        errors.append("Поле 'Номер' должно содержать ТОЛЬКО цифры и не быть пустым")
 
     combobox = self.combobox.currentText()
     if len(combobox) == 0:
-        errors.append("Не выбрано значение в комбобоксе")
+        errors.append("Не выбрано значение статуса")
 
     enter_key = self.enter_key.text()
     if len(enter_key) == 0:
