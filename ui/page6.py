@@ -156,12 +156,10 @@ def create_page6(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.enter_number.setPalette(palette)
     left_group_layout.addRow(QLabel("Номер заявки:"), self.enter_number)
-    # Подключаем проверку: должно состоять только из цифр и не быть пустым.
+    # Подключаем проверку: должно не быть пустым.
     self.enter_number.textChanged.connect(
-        lambda: update_line_edit_style(
-            self.enter_number,
-            not (self.enter_number.text() and self.enter_number.text().isdigit())
-        )
+        lambda: update_line_edit_style(self.enter_number, len(self.enter_number.text().strip()) == 0)
+
     )
 
     # ---- Комбобокс "Наименование ПО СКЗИ" ----
@@ -209,7 +207,8 @@ def create_page6(self) -> QWidget:
     self.enter_key.setPalette(palette)
     left_group_layout.addRow(QLabel("Ключ:"), self.enter_key)
     self.enter_key.textChanged.connect(
-        lambda: update_line_edit_style(self.enter_key, len(self.enter_key.text().strip()) == 0)
+        lambda: update_line_edit_style(self.enter_key,
+            len(self.enter_key.text().strip()) == 0)
     )
 
     # ---- Комбобокс "Область применения" ----
@@ -575,7 +574,7 @@ def save_values6(self):
     # Проверка всех полей и сбор ошибок
     enter_number = self.enter_number.text()
     if enter_number.isalpha() or len(enter_number) == 0:
-        errors.append("Поле 'Номер' должно содержать ТОЛЬКО цифры и не быть пустым")
+        errors.append("Поле 'Номер' должен не быть пустым")
 
     combobox = self.combobox.currentText()
     if len(combobox) == 0:
@@ -674,3 +673,60 @@ def update_extra_fields_visibility(self):
     Показывает блок 'Дополнительные сведения', если выбрана опция "Изьято".
     """
     self.extra_group.setVisible(self.rb_taken.isChecked())
+
+
+def fetch_distinct_options(column_name: str) -> list:
+    """
+    Выбирает уникальные значения для указанного столбца из таблицы SCZY.
+    """
+    try:
+        connection = pymysql.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = connection.cursor()
+        query = f"""
+            SELECT DISTINCT {column_name} FROM SCZY
+            WHERE {column_name} IS NOT NULL AND TRIM({column_name}) != ''
+            ORDER BY {column_name}
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+        connection.close()
+        # Формируем список значений; предполагаем, что результат имеет вид: [{"имя_столбца": value}, ...]
+        return [row[column_name] for row in results]
+    except Exception as e:
+        print(f"Ошибка при загрузке данных для {column_name}: {e}")
+        return []
+
+
+def populate_combobox_with_db(combo_box: QComboBox, column_name: str):
+    """
+    Очищает combo_box и заполняет его уникальными значениями из указанного столбца БД.
+    """
+    options = fetch_distinct_options(column_name)
+    combo_box.clear()
+    for option in options:
+        combo_box.addItem(option)
+    completer = QCompleter(options)
+    completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+    combo_box.setCompleter(completer)
+
+
+def refresh_comboboxes(self):
+    """
+    Обновляет выпадающие списки, заполняемые данными из базы.
+    При этом используются уже реализованные функции для заполнения списка.
+    """
+    populate_combobox_with_db(self.skzi_name_cb, "name_of_SCZY")
+    populate_combobox_with_db(self.skzi_version_cb, "number_SCZY")
+    populate_combobox_with_db(self.owners, "owners")
+    # Если необходимо, можно добавить обновление других полей,
+    # например, если "from_whom_cb" или "note_cb" тоже должны подтягивать данные из БД:
+    # populate_combobox_with_db(self.from_whom_cb, "owner")
+    # populate_combobox_with_db(self.note_cb, "note")

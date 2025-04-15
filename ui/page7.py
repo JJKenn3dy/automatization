@@ -3,7 +3,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
-    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QHeaderView
+    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QHeaderView, QCompleter, QMessageBox
 )
 from PyQt6.QtCore import Qt
 from logic.db import enter_sczy
@@ -130,20 +130,20 @@ def create_page7(self) -> QWidget:
     left_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
     left_group.setLayout(left_form)
 
-    # Наименование СКЗИ (QComboBox)
+    # Для поля "Наименование СКЗИ" (используем столбец "name_of_SCZY")
     self.skzi_name_cb = QComboBox(self)
     self.skzi_name_cb.setEditable(True)
     line_edit = self.skzi_name_cb.lineEdit()
     line_edit.setPlaceholderText("Наименование СКЗИ")
+    # Настройка палитры (оставляем как есть)
     palette = line_edit.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
     line_edit.setPalette(palette)
-    for option in ["Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.skzi_name_cb.addItem(option)
+    # Загрузка данных из БД:
+    populate_combobox_with_db(self.skzi_name_cb, "name_of_SCZY")
     self.skzi_name_cb.clearEditText()
     left_form.addRow(QLabel("Наименование СКЗИ:"), self.skzi_name_cb)
-    # Подключаем проверку комбобокса
     self.skzi_name_cb.lineEdit().textChanged.connect(
         lambda: update_combobox_style(
             self.skzi_name_cb,
@@ -171,7 +171,7 @@ def create_page7(self) -> QWidget:
         )
     )
 
-    # Версия СКЗИ
+    # Аналогично для "Версия СКЗИ" (например, используя столбец "number_SCZY")
     self.skzi_version_cb = QComboBox(self)
     self.skzi_version_cb.setEditable(True)
     self.skzi_version_cb.setCurrentText("Версия СКЗИ")
@@ -181,8 +181,7 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.skzi_version_cb.addItem(option)
+    populate_combobox_with_db(self.skzi_version_cb, "number_SCZY")
     self.skzi_version_cb.clearEditText()
     left_form.addRow(QLabel("Версия СКЗИ:"), self.skzi_version_cb)
     self.skzi_version_cb.lineEdit().textChanged.connect(
@@ -259,7 +258,7 @@ def create_page7(self) -> QWidget:
 
     # Местонахождение ПО
     self.location = QLineEdit(self)
-    self.location.setPlaceholderText("Местонахождение ТОМа")
+    self.location.setPlaceholderText("Местонахождение СКЗИ")
     palette = self.location.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
@@ -362,8 +361,7 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
     line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.from_whom_cb.addItem(option)
+    populate_combobox_with_db(self.from_whom_cb, "owner")
     self.from_whom_cb.clearEditText()
     right_form.addRow(QLabel("От кого получены:"), self.from_whom_cb)
     self.from_whom_cb.lineEdit().textChanged.connect(
@@ -382,8 +380,7 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
     line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.owners.addItem(option)
+    populate_combobox_with_db(self.owners, "owners")
     self.owners.clearEditText()
     right_form.addRow(QLabel("Владельцы:"), self.owners)
     self.owners.lineEdit().textChanged.connect(
@@ -402,8 +399,7 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
     line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.buss_proc.addItem(option)
+    populate_combobox_with_db(self.buss_proc, "buss_proc")
     self.buss_proc.clearEditText()
     right_form.addRow(QLabel("Бизнес процессы:"), self.buss_proc)
     self.buss_proc.lineEdit().textChanged.connect(
@@ -434,8 +430,7 @@ def create_page7(self) -> QWidget:
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(70, 130, 20))
     line_edit.setPalette(palette)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.note_cb.addItem(option)
+    populate_combobox_with_db(self.note_cb, "note")
     self.note_cb.clearEditText()
     right_form.addRow(QLabel("Примечание:"), self.note_cb)
     self.note_cb.lineEdit().textChanged.connect(
@@ -633,24 +628,62 @@ def load_data7(self):
 
 
 def save_value7(self):
+    errors = []
+
+
     # Сбор данных из виджетов
     skzi_name = self.skzi_name_cb.currentText()               # Наименование ПО
+    if len(skzi_name) == 0:
+        errors.append("Поле 'Номер' должен не быть пустым")
+
     skzi_type = self.skzi_type.currentText()                    # Тип СКЗИ
+    if len(skzi_type) == 0:
+        errors.append("Поле 'ТИП СКЗИ' должен не быть пустым")
+
     skzi_version = self.skzi_version_cb.currentText()           # Версия СКЗИ
+    if len(skzi_version) == 0:
+        errors.append("Поле 'skzi_version' должен не быть пустым")
+
     date_str = self.dateedit7.date().toPyDate().strftime('%Y-%m-%d')  # Дата
+
     reg_number = self.reg_number_le.text()                      # Рег. номер
+    if len(reg_number) < 3:
+        errors.append("Рег. номер должен содержать более 2 символов")
     location_text = self.location.text()                        # Местонахождение (ТОМ)
+    if len(location_text) < 2:
+        errors.append("Местонахождение должно содержать более 2 символов")
     location_TOM_text = self.location_TOM.text()
+    if len(location_TOM_text) < 1:
+        errors.append("Местонахождение ТОМа должно содержать более 1 символа")
     from_whom_cb = self.from_whom_cb.currentText()                 # От кого получены
+    if len(from_whom_cb) < 4:
+        errors.append("'От кого получены' должен содержать более 4 символов")
     doc_info = self.doc_info_skzi.text()                          # Документ
+    if len(doc_info) < 4:
+        errors.append("'Документ' должно содержать более 4 символа")
     contract = self.contract_skzi.text()                             # Договор
+    if len(contract) < 4:
+        errors.append("'Договор' должно содержать более 4 символа")
     owners = self.owners.currentText()                          # Владельцы
+    if len(owners) < 4:
+        errors.append("'Владельцы' должно содержать более 4 символа")
     buss_proc = self.buss_proc.currentText()                    # Бизнес процессы
+    if len(buss_proc) < 4:
+        errors.append("'Бизнес процессы' должно содержать более 4 символа")
     fullname_owner = self.fullname_owner.text()
+    if len(fullname_owner) < 4:
+        errors.append("'fullname_owner' должно содержать более 4 символа")
     additional = self.additional_le.text()                      # Дополнительно
     note = self.note_cb.currentText()                           # Примечание
     certnum = self.certnum_le.text()                            # Сертификат
+    if len(certnum) < 4:
+        errors.append("'Сертификат' должно содержать более 4 символа")
     dateedit2_str = self.dateedit2.date().toPyDate().strftime('%Y-%m-%d')  # Доп. дата
+
+    if errors:
+        error_message = "Обнаружены ошибки:\n\n" + "\n".join(f"• {error}" for error in errors)
+        QMessageBox.critical(self, "Ошибка заполнения", error_message)
+        return
 
     enter_sczy(
         skzi_name,
@@ -671,24 +704,90 @@ def save_value7(self):
         certnum,
         dateedit2_str
     )
-    clear_fields(self)
+
+
     # Обновление таблицы сразу после сохранения
     load_data7(self)
 
+    # Обновление выпадающих списков с данными из БД
+    refresh_comboboxes(self)
+
+    clear_fields(self)
+
+    QMessageBox.information(self, "Успех", "Данные успешно сохранены")
+
 
 def clear_fields(self):
-    self.skzi_name_cb.clear()
-    self.skzi_version_cb.clear()
+    self.skzi_name_cb.setCurrentText("")
+    self.skzi_version_cb.setCurrentText("")
     self.dateedit7.date()  # просто вызываем, без очистки
-    self.doc_info_skzi.clear()
-    self.reg_number_le.clear()
-    self.from_whom_cb.clear()
-    self.note_cb.clear()
-    self.additional_le.clear()
-    self.certnum_le.clear()
-    self.dateedit2.clear()
-    self.owners.clearEditText()
-    self.fullname_owner.clear()
-    self.location.clear()
-    self.contract_skzi.clear()
-    self.buss_proc.clearEditText()
+    self.doc_info_skzi.setText("")
+    self.reg_number_le.setText("")
+    self.from_whom_cb.setCurrentText("")
+    self.location_TOM.setText("")
+    self.note_cb.setCurrentText("")
+    self.additional_le.setText("")
+    self.certnum_le.setText("")
+    self.dateedit2.date()
+    self.owners.setCurrentText("")
+    self.fullname_owner.setText("")
+    self.location.setText("")
+    self.contract_skzi.setText("")
+    self.buss_proc.setCurrentText("")
+
+
+def fetch_distinct_options(column_name: str) -> list:
+    """
+    Выбирает уникальные значения для указанного столбца из таблицы SCZY.
+    """
+    try:
+        connection = pymysql.connect(
+            host="localhost",
+            port=3306,
+            user="newuser",
+            password="852456qaz",
+            database="IB",
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = connection.cursor()
+        query = f"""
+            SELECT DISTINCT {column_name} FROM SCZY
+            WHERE {column_name} IS NOT NULL AND TRIM({column_name}) != ''
+            ORDER BY {column_name}
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+        connection.close()
+        # Формируем список значений; предполагаем, что результат имеет вид: [{"имя_столбца": value}, ...]
+        return [row[column_name] for row in results]
+    except Exception as e:
+        print(f"Ошибка при загрузке данных для {column_name}: {e}")
+        return []
+
+
+def populate_combobox_with_db(combo_box: QComboBox, column_name: str):
+    """
+    Очищает combo_box и заполняет его уникальными значениями из указанного столбца БД.
+    """
+    options = fetch_distinct_options(column_name)
+    combo_box.clear()
+    for option in options:
+        combo_box.addItem(option)
+    completer = QCompleter(options)
+    completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+    combo_box.setCompleter(completer)
+
+
+def refresh_comboboxes(self):
+    """
+    Обновляет выпадающие списки, заполняемые данными из базы.
+    При этом используются уже реализованные функции для заполнения списка.
+    """
+    populate_combobox_with_db(self.skzi_name_cb, "name_of_SCZY")
+    populate_combobox_with_db(self.skzi_version_cb, "number_SCZY")
+    populate_combobox_with_db(self.owners, "owners")
+    populate_combobox_with_db(self.from_whom_cb, "owner")
+    populate_combobox_with_db(self.note_cb, "note")
+    populate_combobox_with_db(self.buss_proc, "buss_proc")
+
