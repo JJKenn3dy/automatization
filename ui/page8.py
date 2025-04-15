@@ -113,13 +113,13 @@ def create_page8(self) -> QWidget:
 
     # Серийный номер
     self.serial_le_key = QLineEdit(self)
-    self.serial_le_key.setPlaceholderText("Серийный номер:")
+    self.serial_le_key.setPlaceholderText("Серийный номер сертификата:")
     palette = self.serial_le_key.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.serial_le_key.setPalette(palette)
     self.serial_le_key.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    left_form.addRow(QLabel("Серийный номер:"), self.serial_le_key)
+    left_form.addRow(QLabel("Серийный номер сертификата:"), self.serial_le_key)
 
     # Выдавший УЦ
     self.issuer_cb_key = QComboBox(self)
