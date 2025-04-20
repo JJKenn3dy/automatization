@@ -3,7 +3,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
-    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
 from PyQt6.QtCore import Qt, QDate, QTimer
 
@@ -427,7 +427,7 @@ def create_data_table8(self) -> QWidget:
 
 def load_data8(self):
     """
-    Загружает из базы данных последние 50 записей из таблицы KeysTable.
+    Загружает из базы данных последние 500 записей из таблицы KeysTable.
     При наличии текста в поиске выполняется фильтрация по нескольким полям.
     """
     search_text = self.search_line8.text().strip()
@@ -455,13 +455,13 @@ def load_data8(self):
                    OR owner_fullname LIKE %s 
                    OR VIP_Critical LIKE %s
                 ORDER BY ID DESC
-                LIMIT 50
+                LIMIT 1500
             """
             like_pattern = f"%{search_text}%"
             cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern,
                                      like_pattern, like_pattern, like_pattern, like_pattern))
         else:
-            query = "SELECT * FROM KeysTable ORDER BY ID DESC LIMIT 1000"
+            query = "SELECT * FROM KeysTable ORDER BY ID DESC LIMIT 1500"
             cursor.execute(query)
         results = cursor.fetchall()
         connection.close()
@@ -494,20 +494,45 @@ def load_data8(self):
 
 
 def save_value8(self):
+    errors = []
+
     status_cb = self.status_cb.currentText()
     nositel_type_cb = self.nositel_type_cb_key.currentText()
+    if len(nositel_type_cb) == 0:
+        errors.append("Поле 'Номер' должен не быть пустым")
     cert_serial_le = self.serial_le_key.text()
+    if len(cert_serial_le) == 0:
+        errors.append("Поле 'cert_serial_le' должен не быть пустым")
     issuer_cb = self.issuer_cb_key.currentText()
+    if len(issuer_cb) == 0:
+        errors.append("Поле 'issuer_cb' должен не быть пустым")
     scope_cb = self.scope_cb_key.currentText()
+    if len(scope_cb) == 0:
+        errors.append("Поле 'scope_cb' должен не быть пустым")
     owner_cb = self.owner_cb_key.currentText()
+    if len(owner_cb) == 0:
+        errors.append("Поле 'owner_cb' должен не быть пустым")
     vip_cb = self.vip_cb.currentText()
+    if len(vip_cb) == 0:
+        errors.append("Поле 'vip_cb' должен не быть пустым")
     dateedit1 = self.dateedit1_key.date()
     dateedit2 = self.dateedit2.date()
     additional_cb = self.additional_cb_key.currentText()
+    if len(additional_cb) == 0:
+        errors.append("Поле 'additional_cb' должен не быть пустым")
     request_let = self.request_let_key.text()
+    if len(request_let) == 0:
+        errors.append("Поле 'request_let' должен не быть пустым")
     note_le = self.note_le_key.text()
+    if len(note_le) == 0:
+        errors.append("Поле 'note_le' должен не быть пустым")
     dateedit_str = dateedit1.toPyDate().strftime('%Y-%m-%d')
     dateedit2_str = dateedit2.toPyDate().strftime('%Y-%m-%d')
+
+    if errors:
+        error_message = "Обнаружены ошибки:\n\n" + "\n".join(f"• {error}" for error in errors)
+        QMessageBox.critical(self, "Ошибка заполнения", error_message)
+        return
 
     enter_keys(status_cb, nositel_type_cb, cert_serial_le, issuer_cb, scope_cb, owner_cb, vip_cb,
                dateedit_str, dateedit2_str, additional_cb, request_let, note_le)

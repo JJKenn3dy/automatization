@@ -7,7 +7,7 @@ from PyQt6.QtGui import QKeySequence, QShortcut, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit,
     QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout,
-    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
+    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QCompleter
 )
 from PyQt6.QtCore import Qt, QDate, QTimer
 from logic.db import enter_license

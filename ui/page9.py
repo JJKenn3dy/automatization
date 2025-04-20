@@ -311,13 +311,13 @@ def create_page9(self) -> QWidget:
 
     # Дополнительно 2
     self.additional2_le = QLineEdit(self)
-    self.additional2_le.setPlaceholderText("Дополнительно:")
+    self.additional2_le.setPlaceholderText("Примечание:")
     palette = self.additional2_le.palette()
     palette.setColor(QPalette.ColorRole.Text, QColor("white"))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
     self.additional2_le.setPalette(palette)
     self.additional2_le.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    right_form.addRow(QLabel("Дополнительно:"), self.additional2_le)
+    right_form.addRow(QLabel("Примечание:"), self.additional2_le)
 
     h_layout.addWidget(right_group, 1)
 

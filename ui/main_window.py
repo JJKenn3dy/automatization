@@ -74,6 +74,64 @@ class MainWindow(QMainWindow):
 
     create_tables()
 
+    def export_sczy_to_excel(self, all_data: bool = False):
+        """
+        all_data=True  — вытянуть ВСЕ записи из SCZY,
+        all_data=False — только отфильтрованные по self.search_line7.
+        """
+        try:
+            conn = pymysql.connect(
+                host="localhost", port=3306,
+                user="newuser", password="852456qaz",
+                database="IB", charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            cur = conn.cursor()
+            if all_data:
+                cur.execute("SELECT * FROM SCZY ORDER BY ID DESC")
+            else:
+                txt = self.search_line7.text().strip()
+                if not txt:
+                    QMessageBox.information(self, "Экспорт", "Введите текст для фильтрации.")
+                    conn.close()
+                    return
+                like = f"%{txt}%"
+                cur.execute(
+                    """
+                    SELECT * FROM SCZY
+                     WHERE CAST(ID AS CHAR)   LIKE %s
+                        OR name_of_SCZY       LIKE %s
+                        OR sczy_type          LIKE %s
+                        OR number_SCZY        LIKE %s
+                        OR owner              LIKE %s
+                        OR fullname_owner     LIKE %s
+                     ORDER BY ID DESC
+                     LIMIT 50
+                    """,
+                    (like,) * 6
+                )
+            rows = cur.fetchall()
+            conn.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка экспорта", f"Не удалось получить данные:\n{e}")
+            return
+
+        if not rows:
+            QMessageBox.information(self, "Экспорт", "Нет данных для экспорта.")
+            return
+
+        df = pd.DataFrame(rows)
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить в Excel", "", "Excel Files (*.xlsx)")
+        if not path:
+            return
+        if not path.lower().endswith(".xlsx"):
+            path += ".xlsx"
+        try:
+            df.to_excel(path, index=False)
+            QMessageBox.information(self, "Экспорт", f"Успешно сохранено:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка сохранения", str(e))
+
     def pdf_check(self):
         pdf_check(self)
 

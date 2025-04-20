@@ -72,7 +72,7 @@ def create_page2(self) -> QWidget:
     # Кнопка "Лицензии"
     btn_input = QPushButton("Лицензии")
     btn_input.clicked.connect(self.go_to_six_page)
-    btn_input.setFixedSize(150, 50)
+    btn_input.setFixedSize(300, 100)
     btn_input.setStyleSheet(dark_button_style())
     left_form.addRow(btn_input)
     left_form.setAlignment(btn_input, Qt.AlignmentFlag.AlignCenter)
@@ -80,7 +80,7 @@ def create_page2(self) -> QWidget:
     # Кнопка "СКЗИ"
     btn_input2 = QPushButton("СКЗИ")
     btn_input2.clicked.connect(self.go_to_seven_page)
-    btn_input2.setFixedSize(150, 50)
+    btn_input2.setFixedSize(300, 100)
     btn_input2.setStyleSheet(dark_button_style())
     left_form.addRow(btn_input2)
     left_form.setAlignment(btn_input2, Qt.AlignmentFlag.AlignCenter)
@@ -113,7 +113,7 @@ def create_page2(self) -> QWidget:
     # Кнопка "Ключи УКЭП"
     btn_input3 = QPushButton("Ключи УКЭП")
     btn_input3.clicked.connect(self.go_to_eight_page)
-    btn_input3.setFixedSize(150, 50)
+    btn_input3.setFixedSize(300, 100)
     btn_input3.setStyleSheet(dark_button_style())
     right_group_layout.addRow(btn_input3)
     right_group_layout.setAlignment(btn_input3, Qt.AlignmentFlag.AlignCenter)
@@ -121,7 +121,7 @@ def create_page2(self) -> QWidget:
     # Кнопка "КБР"
     btn_input4 = QPushButton("КБР")
     btn_input4.clicked.connect(self.go_to_nine_page)
-    btn_input4.setFixedSize(150, 50)
+    btn_input4.setFixedSize(300, 100)
     btn_input4.setStyleSheet(dark_button_style())
     right_group_layout.addRow(btn_input4)
     right_group_layout.setAlignment(btn_input4, Qt.AlignmentFlag.AlignCenter)
@@ -152,7 +152,7 @@ def create_page2(self) -> QWidget:
     # Кнопка "TLS"
     btn_input5 = QPushButton("TLS")
     btn_input5.clicked.connect(self.go_to_ten_page)
-    btn_input5.setFixedSize(150, 50)
+    btn_input5.setFixedSize(300, 100)
     btn_input5.setStyleSheet(dark_button_style())
     extra_layout.addRow(btn_input5)
     extra_layout.setAlignment(btn_input5, Qt.AlignmentFlag.AlignCenter)
