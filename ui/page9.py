@@ -1,349 +1,210 @@
-from datetime import datetime
-from PyQt6 import QtWidgets
-from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
+# ui/page9.py
+from PyQt6.QtCore   import Qt, QDate, QTimer
+from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
-    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
+    QLabel, QScrollArea, QFrame, QGraphicsDropShadowEffect, QDateEdit, QSizePolicy, QPushButton, QComboBox, QLineEdit,
+    QTableWidget, QHeaderView, QTableWidgetItem
 )
-from PyQt6.QtCore import Qt, QDate, QTimer
 
+from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
 from logic.db import enter_CBR
-from ui.page8 import clear_fields  # Либо определить локальную функцию
+import pymysql                         # для load_data9
+
+# ───── маленькие фабрики ──────────────────────────────────────────────
+def _hline(color=ACCENT, h=2):
+    ln = QFrame(); ln.setFixedHeight(h)
+    ln.setStyleSheet(f"background:{color};border:none;")
+    return ln
+
+def _vline(color="#d0d0d0", w=1):
+    ln = QFrame(); ln.setFixedWidth(w)
+    ln.setFrameShape(QFrame.Shape.VLine)
+    ln.setStyleSheet(f"background:{color};border:none;")
+    return ln
+
+def _edit(ph: str, font=None) -> QLineEdit:
+    e = QLineEdit(); e.setPlaceholderText(ph); e.setFixedHeight(34)
+    e.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    if font: e.setFont(font)
+    e.setStyleSheet(f"""
+        QLineEdit {{
+            background:#fff; border:1px solid #88959e; border-radius:6px;
+            padding:4px 8px; color:{TXT_DARK};
+        }}
+        QLineEdit:focus{{ border:1px solid {ACCENT}; }}
+        QLineEdit::placeholder{{ color:{ACCENT}; }}
+    """); return e
+
+def _combo(ph: str, items: list[str], font=None) -> QComboBox:
+    cb = QComboBox(); cb.addItems(items); cb.setCurrentIndex(-1); cb.setEditable(True)
+    cb.lineEdit().setPlaceholderText(ph); cb.setFixedHeight(34)
+    cb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    if font: cb.setFont(font); cb.lineEdit().setFont(font)
+    cb.setStyleSheet(f"""
+        QComboBox {{
+            background:#fff; border:1px solid #88959e; border-radius:6px;
+            padding:2px 32px 2px 8px; color:{TXT_DARK};
+        }}
+        QComboBox:focus{{ border:1px solid {ACCENT}; }}
+        QComboBox QLineEdit {{ border:none; padding:0; }}
+        QComboBox QLineEdit::placeholder{{ color:{ACCENT}; }}
+        QComboBox::drop-down{{ subcontrol-origin:padding; subcontrol-position:top right;
+                               width:26px; border:none; background:transparent; 
+                               border-left:1px solid #88959e; }}
+        QComboBox::down-arrow{{ image:url(icons/chevron_down.svg); width:10px;height:6px;
+                                margin-right:8px; }}
+        QComboBox::down-arrow:on{{ image:url(icons/chevron_up.svg); }}
+        QComboBox QAbstractItemView {{
+            border:1px solid #88959e; outline:0;
+            selection-background-color:rgba(139,197,64,.18);
+        }}
+    """); return cb
+
+def _btn(text:str, h=BTN_H):
+    b = QPushButton(text); b.setCursor(Qt.CursorShape.PointingHandCursor); b.setFixedHeight(h)
+    b.setStyleSheet(
+        f"QPushButton{{background:{BG};color:#fff;border:none;border-radius:{BTN_R}px;}}"
+        f"QPushButton:hover{{background:{ACCENT};}}"
+    ); return b
+
+# ───── вверху рядом с _edit и _combo ─────────────────────────────
+def _date(font=None) -> QDateEdit:
+    d = QDateEdit(calendarPopup=True)
+    d.setDate(QDate.currentDate())
+    d.setDisplayFormat("dd.MM.yyyy")      # как на скрине
+    d.setFixedHeight(34)
+    d.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    if font: d.setFont(font)
+    d.setStyleSheet(f"""
+        QDateEdit {{
+            background:#fff; border:1px solid #88959e; border-radius:6px;
+            padding:2px 32px 2px 8px; color:{TXT_DARK};
+        }}
+        QDateEdit:focus{{ border:1px solid {ACCENT}; }}
+        QDateEdit::drop-down{{
+            subcontrol-origin:padding; subcontrol-position:top right;
+            width:26px; border:none; background:transparent;
+            border-left:1px solid #88959e;
+        }}
+        QDateEdit::down-arrow{{
+            image:url(icons/chevron_down.svg);
+            width:10px; height:6px; margin-right:8px;
+        }}
+    """)
+    return d
+
 
 def create_page9(self) -> QWidget:
-    page = QWidget()
-    # Устанавливаем общий тёмный фон и белый цвет текста для всей страницы
-    page.setStyleSheet("background-color: #121212; color: white;")
-    main_layout = QVBoxLayout(page)
-    main_layout.setContentsMargins(20, 20, 20, 20)
-    main_layout.setSpacing(15)
+    fam, sty = load_gilroy()
+    f_h1   = QFontDatabase.font(fam, sty, 28)
+    f_h2   = QFontDatabase.font(fam, sty, 20)
+    f_body = QFontDatabase.font(fam, sty, 12)
 
-    # Кнопка "Назад"
-    btn_back = QPushButton("Назад")
-    btn_back.setStyleSheet(
-        "background-color: #333333; color: white; font-size: 15px; border: 1px solid #555; border-radius: 4px;")
-    btn_back.clicked.connect(self.go_to_second_page)
-    btn_back.setMinimumSize(150, 30)
-    main_layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
+    page = QWidget(); page.setStyleSheet(f"background:{BG};")
+    root = QVBoxLayout(page)
+    root.setContentsMargins(16,16,16,16); root.setSpacing(8)
 
-    # Заголовок
-    header_label = QLabel("КБР")
-    header_label.setWordWrap(True)
-    header_label.setStyleSheet("font-size: 20px; color: white;")
-    header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    main_layout.addWidget(header_label)
+    # Esc → назад
+    QShortcut(QKeySequence("Escape"), page).activated.connect(self.go_to_second_page)
 
-    # Горизонтальный лэйаут для групп
-    h_layout = QHBoxLayout()
-    h_layout.setSpacing(30)
-    main_layout.addLayout(h_layout)
+    # ── заголовок
+    ttl = QLabel("КБР"); ttl.setFont(f_h1)
+    ttl.setStyleSheet(f"color:#fff;border-bottom:3px solid {ACCENT};padding-bottom:4px;")
+    root.addWidget(ttl, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    # ---------- ЛЕВЫЙ БЛОК (Основные данные) ----------
-    left_group = QGroupBox("Основные данные")
-    left_group.setStyleSheet("""
-        QGroupBox {
-            background-color: #1e1e1e;
-            border: 1px solid #444;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px;
-            color: white;
-        }
-        QLabel {
-            color: white;
-        }
-    """)
-    left_form = QFormLayout()
-    left_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-    left_group.setLayout(left_form)
+    # ── скролл + карточка ─────────────────────────────────────────
+    scroll = QScrollArea(); scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    root.addWidget(scroll)
 
-    # Заявка/номер обращения
-    self.request_le = QLineEdit(self)
-    self.request_le.setPlaceholderText("Заявка/номер обращения:")
-    palette = self.request_le.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.request_le.setPalette(palette)
-    self.request_le.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    left_form.addRow(QLabel("Обращение:"), self.request_le)
+    wrapper = QWidget(); wrap_l = QVBoxLayout(wrapper); wrap_l.setContentsMargins(0,0,0,0)
 
-    # Тип носителя (Да/Нет)
-    self.nositel_cb = QComboBox(self)
-    self.nositel_cb.setEditable(False)
-    self.nositel_cb.setStyleSheet("""
-        QComboBox {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #121212;
-            color: white;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    self.nositel_cb.addItem("Да")
-    self.nositel_cb.addItem("Нет")
-    left_form.addRow(QLabel("Тип носителя:"), self.nositel_cb)
+    card = QFrame()
+    card.setMinimumWidth(1300); card.setMaximumWidth(1600)
+    card.setStyleSheet(f"background:#fff;border-radius:{CARD_R}px;")
+    card.setGraphicsEffect(QGraphicsDropShadowEffect(
+        blurRadius=32, xOffset=0, yOffset=4, color=QColor(0,0,0,55)))
+    cbox = QVBoxLayout(card); cbox.setContentsMargins(PAD_H, PAD_V//2, PAD_H, PAD_V//2)
 
-    # Носитель (Серийный номер)
-    self.nositel_serial_cb = QComboBox(self)
-    self.nositel_serial_cb.setEditable(True)
-    line_edit = self.nositel_serial_cb.lineEdit()
-    line_edit.setPlaceholderText("Носитель (Серийный номер)")
-    palette = line_edit.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    line_edit.setPalette(palette)
-    self.nositel_serial_cb.setStyleSheet("""
-        QComboBox {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #121212;
-            color: white;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.nositel_serial_cb.addItem(option)
-    self.nositel_serial_cb.clearEditText()
-    left_form.addRow(QLabel("Серийный номер:"), self.nositel_serial_cb)
+    wrap_l.addWidget(card); scroll.setWidget(wrapper)
 
-    # Номер ключа
-    self.key_number_le = QLineEdit(self)
-    self.key_number_le.setPlaceholderText("Номер ключа:")
-    palette = self.key_number_le.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.key_number_le.setPalette(palette)
-    self.key_number_le.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    left_form.addRow(QLabel("Номер ключа:"), self.key_number_le)
+    # ── Header внутри карточки
+    hdr = QWidget(); hb = QHBoxLayout(hdr); hb.setContentsMargins(0,0,0,0); hb.setSpacing(12)
+    back = _btn("←", 34); back.setFixedWidth(42); back.clicked.connect(self.go_to_second_page)
+    hb.addWidget(back, 0, Qt.AlignmentFlag.AlignLeft)
+    htxt = QLabel("Информация по КБР"); htxt.setFont(f_h2); htxt.setStyleSheet(f"color:{TXT_DARK};")
+    hb.addWidget(htxt, 0, Qt.AlignmentFlag.AlignLeft); hb.addStretch(1)
+    cbox.addWidget(hdr)
 
-    # Выдавший УЦ
-    self.issuer_cb_cbr = QComboBox(self)
-    self.issuer_cb_cbr.setEditable(True)
-    line_edit = self.issuer_cb_cbr.lineEdit()
-    line_edit.setPlaceholderText("Выдавший УЦ")
-    palette = line_edit.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    line_edit.setPalette(palette)
-    self.issuer_cb_cbr.setStyleSheet("""
-        QComboBox {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #121212;
-            color: white;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.issuer_cb_cbr.addItem(option)
-    self.issuer_cb_cbr.clearEditText()
-    left_form.addRow(QLabel("УЦ:"), self.issuer_cb_cbr)
+    # ── две формы в GridLayout ───────────────────────────────────
+    g = QGridLayout(); g.setContentsMargins(12,12,12,12)
+    g.setHorizontalSpacing(20); g.setVerticalSpacing(8)
+    cbox.addLayout(g)
 
-    h_layout.addWidget(left_group, 1)
+    f_group = QFontDatabase.font(fam, sty, 14); f_group.setBold(True)
+    for col, txt in enumerate(("Основные данные", "Дополнительные сведения")):
+        lab = QLabel(txt); lab.setFont(f_group); lab.setStyleSheet(f"color:{TXT_DARK};")
+        g.addWidget(lab, 0, col*2)
+    g.addWidget(_hline(ACCENT,1), 1, 0, 1, 3)
 
-    # ---------- ПРАВЫЙ БЛОК (Дополнительно) ----------
-    right_group = QGroupBox("Дополнительно")
-    right_group.setStyleSheet("""
-        QGroupBox {
-            background-color: #1e1e1e;
-            border: 1px solid #444;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px;
-            color: white;
-        }
-        QLabel {
-            color: white;
-        }
-    """)
-    right_form = QFormLayout()
-    right_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-    right_group.setLayout(right_form)
+    FL, FR = QFormLayout(), QFormLayout()
+    for F in (FL, FR):
+        F.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        F.setVerticalSpacing(6); F.setHorizontalSpacing(18)
+        F.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
-    # Область действия / наименование ЭДО
-    self.scope_cb_cbr = QComboBox(self)
-    self.scope_cb_cbr.setEditable(True)
-    self.scope_cb_cbr.setCurrentText("Область действия / наименование ЭДО")
-    line_edit = self.scope_cb_cbr.lineEdit()
-    line_edit.setPlaceholderText("Область действия / наименование ЭДО")
-    palette = line_edit.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    line_edit.setPalette(palette)
-    self.scope_cb_cbr.setStyleSheet("""
-        QComboBox {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #121212;
-            color: white;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.scope_cb_cbr.addItem(option)
-    self.scope_cb_cbr.clearEditText()
-    right_form.addRow(QLabel("Область/ЭДО:"), self.scope_cb_cbr)
+    g.addWidget(_vline(), 2, 1, 1, 1)
+    g.addLayout(FL, 2, 0); g.addLayout(FR, 2, 2)
+    g.setColumnStretch(0,1); g.setColumnStretch(2,1)
 
-    # ФИО владельца
-    self.owner_cb_cbr = QComboBox(self)
-    self.owner_cb_cbr.setEditable(True)
-    line_edit = self.owner_cb_cbr.lineEdit()
-    line_edit.setPlaceholderText("Владелец:")
-    palette = line_edit.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    line_edit.setPalette(palette)
-    self.owner_cb_cbr.setStyleSheet("""
-        QComboBox {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #121212;
-            color: white;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    for option in ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]:
-        self.owner_cb_cbr.addItem(option)
-    self.owner_cb_cbr.clearEditText()
-    right_form.addRow(QLabel("Владелец:"), self.owner_cb_cbr)
+    # ── левая форма ──────────────────────────────────────────────
+    self.request_le         = _edit("Номер обращения", f_body)
+    self.nositel_cb         = _combo("Тип носителя? (Да/Нет)", ["Да","Нет"], f_body)
+    self.nositel_serial_cb  = _combo("Носитель (серийный)", [], f_body)
+    self.key_number_le      = _edit("Номер ключа", f_body)
+    self.issuer_cb_cbr      = _combo("УЦ", [], f_body)
 
-    # Дата 1
-    self.dateedit1 = QtWidgets.QDateEdit(calendarPopup=True)
-    self.dateedit1.setDateTime(datetime.today())
-    self.dateedit1.setStyleSheet("""
-        QDateEdit {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QDateEdit::drop-down { background-color: #1e1e1e; }
-        QCalendarWidget {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-        }
-        QCalendarWidget QAbstractItemView:enabled {
-            background-color: #121212;
-            color: #e0e0e0;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    right_form.addRow(QLabel("Дата 1:"), self.dateedit1)
+    FL.addRow("Обращение",       self.request_le)
+    FL.addRow("Тип носителя",    self.nositel_cb)
+    FL.addRow("Серийный номер",  self.nositel_serial_cb)
+    FL.addRow("Номер ключа",     self.key_number_le)
+    FL.addRow("УЦ",              self.issuer_cb_cbr)
 
-    # Дата 2
-    self.dateedit2 = QtWidgets.QDateEdit(calendarPopup=True)
-    self.dateedit2.setDateTime(datetime.today())
-    self.dateedit2.setStyleSheet("""
-        QDateEdit {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QDateEdit::drop-down { background-color: #1e1e1e; }
-        QCalendarWidget {
-            background-color: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-        }
-        QCalendarWidget QAbstractItemView:enabled {
-            background-color: #121212;
-            color: #e0e0e0;
-            selection-background-color: #444;
-            selection-color: white;
-        }
-    """)
-    right_form.addRow(QLabel("Дата 2:"), self.dateedit2)
+    # ── правая форма ─────────────────────────────────────────────
+    self.scope_cb_cbr   = _combo("Область/ЭДО", [], f_body)
+    self.owner_cb_cbr   = _combo("Владелец", [], f_body)
+    self.dateedit1      = _date(f_body)
+    self.dateedit2      = _date(f_body)
+    self.additional1_le = _edit("Дополнительно", f_body)
+    self.additional2_le = _edit("Дополнительно", f_body)
 
-    # Дополнительно 1
-    self.additional1_le = QLineEdit(self)
-    self.additional1_le.setPlaceholderText("Дополнительно:")
-    palette = self.additional1_le.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.additional1_le.setPalette(palette)
-    self.additional1_le.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    right_form.addRow(QLabel("Дополнительно:"), self.additional1_le)
+    FR.addRow("Область/ЭДО", self.scope_cb_cbr)
+    FR.addRow("Владелец",    self.owner_cb_cbr)
+    FR.addRow("Дата 1",      self.dateedit1)
+    FR.addRow("Дата 2",      self.dateedit2)
+    FR.addRow("Дополнительно", self.additional1_le)
+    FR.addRow("Дополнительно", self.additional2_le)
 
-    # Дополнительно 2
-    self.additional2_le = QLineEdit(self)
-    self.additional2_le.setPlaceholderText("Дополнительно:")
-    palette = self.additional2_le.palette()
-    palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(98, 150, 30))
-    self.additional2_le.setPalette(palette)
-    self.additional2_le.setStyleSheet("background-color: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px;")
-    right_form.addRow(QLabel("Дополнительно:"), self.additional2_le)
+    # ── кнопка «Сохранить»
+    btn_save = _btn("Сохранить", 30)
+    btn_save.setFixedWidth(1280)
+    btn_save.clicked.connect(lambda: save_value9(self))
+    cbox.addSpacing(5); cbox.addWidget(btn_save,0,Qt.AlignmentFlag.AlignHCenter); cbox.addSpacing(5)
 
-    h_layout.addWidget(right_group, 1)
+    # ── таблица + поиск
+    tbl_frame = create_data_table9(self)
+    tbl_frame.setStyleSheet("background:#fff;border:1px solid #d0d0d0;border-radius:8px;")
+    tbl_frame.setMinimumHeight(200)
+    cbox.addWidget(tbl_frame)
 
-    # Кнопка для сохранения данных
-    self.save_button = QPushButton("Сохранить", self)
-    self.save_button.setStyleSheet("background-color: #333333; color: white; font-size: 15px; border: 1px solid #555; border-radius: 4px;")
-    right_form.addRow(self.save_button)
-    self.save_button.clicked.connect(lambda: save_value9(self))
+    # таймер обновления
+    self.refresh_timer = QTimer(page); self.refresh_timer.setInterval(60000)
+    self.refresh_timer.timeout.connect(lambda: load_data9(self)); self.refresh_timer.start()
 
-    # Шорткат для Enter
-    enter_shortcut = QShortcut(QKeySequence("Return"), page)
-    enter_shortcut.activated.connect(lambda: save_value9(self))
-    escape_shortcut = QShortcut(QKeySequence("Escape"), page)
-    escape_shortcut.activated.connect(self.go_to_second_page)
-
-
-
-    # --- Добавляем виджет с таблицей и поиском для таблицы CBR ---
-    data_table_widget = create_data_table9(self)
-    main_layout.addWidget(data_table_widget)
-
-    # --- Создаем таймер для периодического обновления таблицы ---
-    self.refresh_timer = QTimer(self)
-    self.refresh_timer.setInterval(5000)  # Обновление каждые 5 секунд
-    self.refresh_timer.timeout.connect(lambda: load_data9(self))
-    self.refresh_timer.start()
+    # Enter → сохранить
+    QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value9(self))
 
     return page
 

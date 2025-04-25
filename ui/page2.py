@@ -1,163 +1,144 @@
-import os
-
-from PyQt6.QtGui import QShortcut, QKeySequence
+# ui/page2.py
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit,
-    QRadioButton, QHBoxLayout, QComboBox, QGroupBox, QFormLayout
+    QWidget, QVBoxLayout, QGridLayout, QHBoxLayout,
+    QLabel, QPushButton, QFrame, QSizePolicy,
+    QSpacerItem, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, QTimer, QDate
-from openpyxl import Workbook, load_workbook  # Excel
-import getpass
+from PyQt6.QtGui import (
+    QColor, QFontDatabase, QKeySequence, QShortcut
+)
+from PyQt6.QtCore import Qt
+
+from ui.page1 import (
+    load_gilroy, HoverButton,
+    BG, ACCENT, TXT_DARK,
+    CARD_R, PAD_H, PAD_V,
+    BTN_H, BTN_R
+)
+
+#───────────────────────────────────────────────────────────────────────────────
+def _hline(color: str, thickness: int = 2) -> QFrame:
+    ln = QFrame()
+    ln.setFixedHeight(thickness)
+    ln.setStyleSheet(f'background:{color}; border:none;')
+    return ln
 
 
+def _dark_btn(text: str, font, slot):
+    """Готовая тёмная кнопка (HoverButton)."""
+    hb = HoverButton(text)
+    hb.btn.setFont(font)
+    hb.setFixedHeight(BTN_H)
+    hb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    hb.btn.setStyleSheet(
+        f"QPushButton{{background:{BG};color:#fff;border:none;"
+        f"border-radius:{BTN_R}px;}}"
+        f"QPushButton:hover{{background:{ACCENT};}}"
+    )
+    hb.btn.clicked.connect(slot)
+    return hb
+
+
+#───────────────────────────────────────────────────────────────────────────────
 def create_page2(self) -> QWidget:
+    # ▸ шрифты
+    family, style = load_gilroy()
+    font_h1  = QFontDatabase.font(family, style, 28)
+    font_h2  = QFontDatabase.font(family, style, 26)
+    font_btn = QFontDatabase.font(family, style, 18)
+
+    # ▸ корень
     page = QWidget()
-    # Устанавливаем тёмный фон и белый цвет текста для всей страницы
-    page.setStyleSheet("background-color: #121212; color: white;")
-    layout = QVBoxLayout(page)
-    layout.setContentsMargins(20, 20, 20, 20)
-    layout.setSpacing(15)
+    page.setStyleSheet(f'background:{BG};')
+    root = QVBoxLayout(page)
+    root.setContentsMargins(40, 30, 40, 30)
+    root.setSpacing(0)
 
-    def dark_button_style():
-        return ("background-color: #333333; color: white; "
-                "font-size: 15px; border: 1px solid #555; border-radius: 4px;")
+    # esc → назад
+    QShortcut(QKeySequence('Escape'), page).activated.connect(self.go_to_first_page)
 
-    # Кнопка "Назад"
-    btn_back = QPushButton("Назад")
-    btn_back.clicked.connect(self.go_to_first_page)
-    btn_back.setStyleSheet(dark_button_style())
-    btn_back.setMinimumSize(150, 30)
-    layout.addWidget(btn_back, alignment=Qt.AlignmentFlag.AlignLeft)
+    # ▸ заголовок приложения
+    hdr_app = QLabel("Регистрация заявок")
+    hdr_app.setFont(font_h1)
+    hdr_app.setStyleSheet(f"color:#fff;border-bottom:3px solid {ACCENT};padding-bottom:4px;")
+    root.addWidget(hdr_app, alignment=Qt.AlignmentFlag.AlignLeft)
+    root.addSpacerItem(QSpacerItem(0, 36,
+        QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
 
-    enter_shortcut = QShortcut(QKeySequence("Escape"), page)
-    enter_shortcut.activated.connect(self.go_to_first_page)
+    # верхний stretch
+    root.addSpacerItem(QSpacerItem(0, 0,
+        QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding))
 
-    # Текст
-    text_label = QLabel("Програма для автоматизации процессов ИБ")
-    text_label.setWordWrap(True)
-    text_label.setStyleSheet("font-size: 25px; color: white;")
-    text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    layout.addWidget(text_label)
+    # ▸ карточка
+    card = QFrame()
+    card.setFixedSize(1280, 580)
+    card.setStyleSheet(f'background:#fff;border-radius:{CARD_R}px;')
+    card.setGraphicsEffect(QGraphicsDropShadowEffect(
+        blurRadius=34, xOffset=0, yOffset=5, color=QColor(0, 0, 0, 55)
+    ))
+    root.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
+    root.addSpacerItem(QSpacerItem(0, 0,
+        QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding))
 
+    # ▸ grid-layout внутри карточки
+    g = QGridLayout(card)
+    g.setContentsMargins(PAD_H, PAD_V, PAD_H, PAD_V)
+    g.setHorizontalSpacing(90)
+    g.setVerticalSpacing(40)          # чуть плотнее, чем раньше
+    g.setColumnStretch(0, 1)
+    g.setColumnStretch(1, 1)
 
-    # Горизонтальный лэйаут для групп
-    h_layout = QHBoxLayout()
-    h_layout.setSpacing(60)
-    layout.addLayout(h_layout)
+    # ── header (стрелка + текст) ─────────────────────────────────────────
+    header_w = QWidget()
+    hh = QHBoxLayout(header_w)
+    hh.setContentsMargins(0, 0, 0, 0)
+    hh.setSpacing(12)
 
+    back = QPushButton("←")
+    back.setCursor(Qt.CursorShape.PointingHandCursor)
+    back.setFont(font_h1)
+    back.setFixedSize(30, 30)
+    back.setStyleSheet(f'color:{TXT_DARK};background:none;border:none;')
+    back.clicked.connect(self.go_to_first_page)
 
-    # Левая группа (Группа 1)
-    left_group = QGroupBox("Группа 1")
-    left_group.setStyleSheet("""
-        QGroupBox {
-            background-color: #1e1e1e;
-            border: 1px solid #444;
-            border-radius: 5px;
-            margin-top: 10px;
-            padding: 10px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px;
-            color: white;
-        }
-    """)
-    left_form = QFormLayout()
-    left_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-    left_group.setLayout(left_form)
-    left_form.setContentsMargins(40, 40, 40, 40)
-    left_form.setSpacing(30)
+    hdr_txt = QLabel("Выберите, что зарегистрировать")
+    hdr_txt.setFont(font_h1)
+    hdr_txt.setStyleSheet(f'color:{TXT_DARK};')
 
-    # Кнопка "Лицензии"
-    btn_input = QPushButton("Лицензии")
-    btn_input.clicked.connect(self.go_to_six_page)
-    btn_input.setFixedSize(150, 50)
-    btn_input.setStyleSheet(dark_button_style())
-    left_form.addRow(btn_input)
-    left_form.setAlignment(btn_input, Qt.AlignmentFlag.AlignCenter)
+    hh.addWidget(back, alignment=Qt.AlignmentFlag.AlignVCenter)
+    hh.addWidget(hdr_txt, alignment=Qt.AlignmentFlag.AlignVCenter)
+    hh.addStretch()
 
-    # Кнопка "СКЗИ"
-    btn_input2 = QPushButton("СКЗИ")
-    btn_input2.clicked.connect(self.go_to_seven_page)
-    btn_input2.setFixedSize(150, 50)
-    btn_input2.setStyleSheet(dark_button_style())
-    left_form.addRow(btn_input2)
-    left_form.setAlignment(btn_input2, Qt.AlignmentFlag.AlignCenter)
+    g.addWidget(header_w, 0, 0, 1, 2)
+    g.addWidget(_hline(ACCENT, 2), 1, 0, 1, 2)
 
-    h_layout.addWidget(left_group, 1)
+    # ── Группа 1 ─────────────────────────────────────────────────────────
+    g1 = QLabel("Группа 1")
+    g1.setFont(font_h2)
+    g1.setStyleSheet(f'color:{TXT_DARK};')
+    g.addWidget(g1, 2, 0, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    # Правая группа (Группа 2)
-    right_group = QGroupBox("Группа 2")
-    right_group.setStyleSheet("""
-        QGroupBox {
-            background-color: #1e1e1e;
-            border: 1px solid #444;
-            border-radius: 5px;
-            margin-top: 10px;
-            padding: 10px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px;
-            color: white;
-        }
-    """)
-    right_group_layout = QFormLayout()
-    right_group_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-    right_group.setLayout(right_group_layout)
-    right_group.setContentsMargins(40, 40, 40, 40)
-    right_group_layout.setSpacing(30)
+    g.addWidget(_dark_btn("Лицензии", font_btn, self.go_to_six_page), 3, 0)
+    g.addWidget(_dark_btn("СКЗИ",      font_btn, self.go_to_seven_page), 4, 0)
 
-    # Кнопка "Ключи УКЭП"
-    btn_input3 = QPushButton("Ключи УКЭП")
-    btn_input3.clicked.connect(self.go_to_eight_page)
-    btn_input3.setFixedSize(150, 50)
-    btn_input3.setStyleSheet(dark_button_style())
-    right_group_layout.addRow(btn_input3)
-    right_group_layout.setAlignment(btn_input3, Qt.AlignmentFlag.AlignCenter)
+    # ── Группа 2 ─────────────────────────────────────────────────────────
+    g2 = QLabel("Группа 2")
+    g2.setFont(font_h2)
+    g2.setStyleSheet(f'color:{TXT_DARK};')
+    g.addWidget(g2, 2, 1, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    # Кнопка "КБР"
-    btn_input4 = QPushButton("КБР")
-    btn_input4.clicked.connect(self.go_to_nine_page)
-    btn_input4.setFixedSize(150, 50)
-    btn_input4.setStyleSheet(dark_button_style())
-    right_group_layout.addRow(btn_input4)
-    right_group_layout.setAlignment(btn_input4, Qt.AlignmentFlag.AlignCenter)
+    g.addWidget(_dark_btn("Ключи УКЭП", font_btn, self.go_to_eight_page), 3, 1)
+    g.addWidget(_dark_btn("КБР",        font_btn, self.go_to_nine_page),   4, 1)
 
-    h_layout.addWidget(right_group, 1)
+    # ── Группа 3 ─────────────────────────────────────────────────────────
+    g3 = QLabel("Группа 3")
+    g3.setFont(font_h2)
+    g3.setStyleSheet(f'color:{TXT_DARK};')
+    g.addWidget(g3, 5, 0, 1, 2, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    # Дополнительная группа (Группа 3)
-    extra_group = QGroupBox("Группа 3")
-    extra_group.setStyleSheet("""
-        QGroupBox {
-            background-color: #1e1e1e;
-            border: 1px solid #444;
-            border-radius: 5px;
-            margin-top: 10px;
-            padding: 10px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px;
-            color: white;
-        }
-    """)
-    extra_layout = QFormLayout()
-    extra_group.setLayout(extra_layout)
-    extra_group.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    # Кнопка "TLS"
-    btn_input5 = QPushButton("TLS")
-    btn_input5.clicked.connect(self.go_to_ten_page)
-    btn_input5.setFixedSize(150, 50)
-    btn_input5.setStyleSheet(dark_button_style())
-    extra_layout.addRow(btn_input5)
-    extra_layout.setAlignment(btn_input5, Qt.AlignmentFlag.AlignCenter)
-    layout.addWidget(extra_group)
-
-
+    g.addWidget(
+        _dark_btn("TSL", font_btn, self.go_to_ten_page),
+        6, 0, 1, 2
+    )
 
     return page

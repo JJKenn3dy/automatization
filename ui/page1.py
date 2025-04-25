@@ -1,102 +1,218 @@
-import getpass
+# ui/page1.py
+
+import os, sys, getpass
+from pathlib import Path
+
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QSizePolicy,
-    QLabel, QPushButton, QVBoxLayout
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QFrame, QSizePolicy, QGraphicsDropShadowEffect, QSpacerItem, QPushButton
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
-import sys, os
+from PyQt6.QtGui import QColor, QFontDatabase, QFont
+from PyQt6.QtCore import (
+    Qt, QPropertyAnimation, QEasingCurve, QRect
+)
+
+
+# ────────────────────────────────────────────────────────────────────────
+# HoverButton с анимацией при enter/leave и press/release
+# ────────────────────────────────────────────────────────────────────────
+class HoverButton(QFrame):
+    def __init__(self, txt, parent=None):
+        super().__init__(parent)
+        self.btn = QPushButton(txt, self)
+        self.btn.setObjectName("animBtn")
+        self.btn.pressed.connect(self._onPress)
+        self.btn.released.connect(self._onRelease)
+
+        # анимируем геометрию самого QFrame
+        self._anim = QPropertyAnimation(self, b"geometry", self)
+        self._anim.setDuration(120)
+        # ← здесь поправлено
+        self._anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+        self._origGeom = None
+
+    def resizeEvent(self, e):
+        self.btn.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(e)
+
+    def enterEvent(self, e):
+        if self._anim.state():
+            self._anim.stop()
+        if self._origGeom is None:
+            self._origGeom = self.geometry()
+        target = self._origGeom.adjusted(-3, -3, 3, 3)
+        self._anim.setStartValue(self.geometry())
+        self._anim.setEndValue(target)
+        self._anim.start()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        if self._anim.state():
+            self._anim.stop()
+        if self._origGeom:
+            self._anim.setStartValue(self.geometry())
+            self._anim.setEndValue(self._origGeom)
+            self._anim.start()
+        super().leaveEvent(e)
+
+    def _onPress(self):
+        if self._anim.state():
+            self._anim.stop()
+        r = self.geometry()
+        target = r.adjusted(2, 2, -2, -2)
+        self._anim.setStartValue(r)
+        self._anim.setEndValue(target)
+        self._anim.start()
+
+    def _onRelease(self):
+        if self._anim.state():
+            self._anim.stop()
+        cur = self.geometry()
+        dest = (self._origGeom.adjusted(-3, -3, 3, 3)
+                if self.underMouse() else self._origGeom)
+        self._anim.setStartValue(cur)
+        self._anim.setEndValue(dest)
+        self._anim.start()
+
+# ────────────────────────────────────────────────────────────────────────
+def load_gilroy() -> tuple[str,str]:
+    base = Path(__file__).resolve().parent.parent
+    fonts = base / "fonts"
+    if not fonts.is_dir():
+        return QApplication.font().family(), ""
+    for f in fonts.glob("Gilroy*-Medium.ttf"):
+        fid = QFontDatabase.addApplicationFont(str(f))
+        fams = QFontDatabase.applicationFontFamilies(fid)
+        if fams:
+            family = fams[0]
+            styles = QFontDatabase.styles(family)
+            style = next((s for s in styles if s.lower()=="medium"), styles[0])
+            return family, style
+    return QApplication.font().family(), ""
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Палитра и размеры
+# ────────────────────────────────────────────────────────────────────────
+BG             = "#2F444E"
+ACCENT         = "#8BC540"
+TXT_DARK       = "#263B48"
+BTN_BG         = "#263B48"
+
+CARD_W, CARD_H = 1420, 420    # шире и выше
+CARD_R         = 20
+PAD_H, PAD_V   = 64, 56       # чуть просторнее
+
+LEFT_W         = 600
+BTN_H, BTN_R   = 60, 10
+
+BAR_W          = 6
+LOGO_W, LOGO_H = 220, 260
+
+SZ_WEL       = 28
+SZ_TITLE     = 18
+SZ_BTN       = 18
+SZ_BANK      = 34
 
 
 def create_page1(self) -> QWidget:
-    """Создаём первую страницу: текст, несколько кнопок, SVG справа (тёмная тема)."""
+    family, style = load_gilroy()
+
+    # шрифты
+    f_wel   = QFontDatabase.font(family, style, SZ_WEL)
+    f_title = QFontDatabase.font(family, style, SZ_TITLE)
+    f_bank  = QFontDatabase.font(family, style, SZ_BANK)
+
+    # общий стиль для кнопок
+    # общий стиль для кнопок
+    btn_css = f"""
+        QPushButton#animBtn {{
+            background:{BTN_BG};
+            color:#ffffff;
+            border:none;
+            border-radius:{BTN_R}px;
+            font:{SZ_BTN}px "{family}";
+        }}
+        /* при наведении чуть тёмнее фон, и сероватый текст */
+        QPushButton#animBtn:hover {{
+            background: #1f2d36;    /* ~90% от #263B48 */
+            color: #e0e0e0;         /* чуть не чисто-белый */
+        }}
+        /* при зажатии можно чуть сильнее потемнить */
+        QPushButton#animBtn:pressed {{
+            background: #19242b;    /* ещё темнее */
+            color: #d0d0d0;
+        }}
+    """
+
+    # главная страница
     page = QWidget()
-    # Задаём общий тёмный фон и белый текст для страницы
-    page.setStyleSheet("background-color: #121212; color: white;")
-    main_layout = QHBoxLayout(page)
-    main_layout.setContentsMargins(50, 40, 50, 40)
-    main_layout.setSpacing(15)
+    page.setStyleSheet(f"background:{BG};")
+    root = QVBoxLayout(page)
+    root.setContentsMargins(40, 30, 40, 30)
+    root.setSpacing(0)
 
-    # Левая колонка (текст + несколько кнопок)
-    left_layout = QVBoxLayout()
+    # приветствие
+    user = getpass.getuser()
+    lbl = QLabel(f"Добро пожаловать, <span style='color:{ACCENT};'>{user}!</span>")
+    lbl.setFont(f_wel)
+    lbl.setStyleSheet(f"color:#fff; border-bottom:3px solid {ACCENT}; padding-bottom:4px;")
+    root.addWidget(lbl, alignment=Qt.AlignmentFlag.AlignLeft)
+    root.addSpacerItem(QSpacerItem(0, 36, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
 
-    # Текст приветствия
-    welcome_label = QLabel(f"Добро пожаловать {getpass.getuser()}!")
-    welcome_label.setWordWrap(True)
-    # Можно оставить акцентный цвет, либо поменять на белый/серый
-    welcome_label.setStyleSheet("font-size: 30px; color: #c0c0c0;")
-    welcome_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-    left_layout.addWidget(welcome_label, alignment=Qt.AlignmentFlag.AlignTop)
+    # центрировка
+    root.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding))
 
-    # Текст описания программы
-    desc_label = QLabel("Програма для автоматизации\nпроцессов ИБ")
-    desc_label.setWordWrap(True)
-    desc_label.setStyleSheet("font-size: 25px; color: #a0a0a0;")
-    desc_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-    left_layout.addWidget(desc_label, alignment=Qt.AlignmentFlag.AlignTop)
+    # белая карточка
+    card = QFrame()
+    card.setFixedSize(CARD_W, CARD_H)
+    card.setStyleSheet(f"background:#fff; border-radius:{CARD_R}px;")
+    sh = QGraphicsDropShadowEffect(blurRadius=28, xOffset=0, yOffset=4, color=QColor(0,0,0,40))
+    card.setGraphicsEffect(sh)
+    root.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
+    root.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding))
 
-    # Функция для формирования стиля кнопки в тёмном стиле
-    def dark_button_style():
-        return ("background-color: #333333; color: white; "
-                "font-size: 15px; border: 1px solid #555; border-radius: 4px;")
+    # контент карточки
+    hl = QHBoxLayout(card)
+    hl.setContentsMargins(PAD_H, PAD_V, PAD_H, PAD_V)
+    hl.setSpacing(64)
 
-    # Кнопка "Регистрация"
-    btn_to_second = QPushButton("Регистрация")
-    btn_to_second.setFixedSize(150, 50)
-    btn_to_second.setStyleSheet(dark_button_style())
-    btn_to_second.clicked.connect(self.on_toggle)
-    btn_to_second.clicked.connect(self.go_to_second_page)
-    left_layout.addWidget(btn_to_second, alignment=Qt.AlignmentFlag.AlignLeft)
+    # левая колонка
+    left = QVBoxLayout(); left.setSpacing(28)
+    t = QLabel("Программа автоматизации процессов\nИнформационной Безопасности")
+    t.setFont(f_title); t.setWordWrap(True); t.setFixedWidth(LEFT_W)
+    t.setStyleSheet(f"color:{TXT_DARK};")
+    left.addWidget(t)
+    hr = QFrame(); hr.setFixedHeight(3); hr.setFixedWidth(LEFT_W)
+    hr.setStyleSheet(f"background:{ACCENT}; border:none;")
+    left.addWidget(hr)
 
-    # Кнопка "Импорт"
-    btn_to_third = QPushButton("Импорт")
-    btn_to_third.setFixedSize(150, 50)
-    btn_to_third.setStyleSheet(dark_button_style())
-    btn_to_third.clicked.connect(self.on_toggle)
-    btn_to_third.clicked.connect(self.go_to_11_page)
-    left_layout.addWidget(btn_to_third, alignment=Qt.AlignmentFlag.AlignLeft)
+    # кнопки как HoverButton
+    for text, slot in [
+        ("Регистрация заявок", self.go_to_second_page),
+        ("Импорт базы",        self.go_to_11_page)
+    ]:
+        wrapper = HoverButton(text)
+        wrapper.setFixedHeight(BTN_H)
+        wrapper.setStyleSheet(btn_css)
+        wrapper.btn.clicked.connect(self.on_toggle)
+        wrapper.btn.clicked.connect(slot)
+        left.addWidget(wrapper)
 
-    # Кнопка "UNWORK" (четвёртая страница)
-    btn_to_fourth = QPushButton("UNWORK")
-    btn_to_fourth.setFixedSize(150, 50)
-    btn_to_fourth.setStyleSheet(dark_button_style())
-    btn_to_fourth.clicked.connect(self.on_toggle)
-    btn_to_fourth.clicked.connect(self.go_to_fourth_page)
-    left_layout.addWidget(btn_to_fourth, alignment=Qt.AlignmentFlag.AlignLeft)
+    left.addStretch(1)
+    hl.addLayout(left, 1)
 
-    # Кнопка "UNWORK" (пятая страница)
-    btn_to_five = QPushButton("UNWORK")
-    btn_to_five.setFixedSize(150, 50)
-    btn_to_five.setStyleSheet(dark_button_style())
-    btn_to_five.clicked.connect(self.on_toggle)
-    btn_to_five.clicked.connect(self.go_to_five_page)
-    left_layout.addWidget(btn_to_five, alignment=Qt.AlignmentFlag.AlignLeft)
-
-    main_layout.addLayout(left_layout)
-
-    # Справа – SVG (например, логотип)
-    self.svg_widget = QSvgWidget("logo.svg")
-    self.svg_widget.setFixedSize(300, 300)
-    self.svg_widget.setAutoFillBackground(True)
-    # Можно задать фон для SVG-виджета (если требуется)
-    self.svg_widget.setStyleSheet("background-color: transparent;")
-
-    # Обёртка для SVG
-    container = QWidget()
-    container.setStyleSheet("background-color: transparent;")
-    container_layout = QVBoxLayout(container)
-    container_layout.setContentsMargins(20, 20, 20, 20)
-    container_layout.addWidget(self.svg_widget, alignment=Qt.AlignmentFlag.AlignCenter)
-    main_layout.addWidget(container, alignment=Qt.AlignmentFlag.AlignRight)
+    # правая колонка
+    right = QHBoxLayout(); right.setSpacing(30)
+    logo = QSvgWidget("logo.svg"); logo.setFixedSize(LOGO_W, LOGO_H)
+    right.addWidget(logo)
+    vb = QFrame(); vb.setFixedWidth(BAR_W)
+    vb.setStyleSheet(f"background:{ACCENT}; border:none;")
+    right.addWidget(vb)
+    bank = QLabel("БАНК"); bank.setFont(f_bank)
+    bank.setStyleSheet(f"color:{TXT_DARK};")
+    right.addWidget(bank)
+    hl.addLayout(right, 0)
 
     return page
-
-
-def resource_path(relative_path):
-    """Возвращает абсолютный путь к ресурсу, работает как в режиме разработки, так и в PyInstaller."""
-    try:
-        base_path = sys._MEIPASS  # PyInstaller
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)

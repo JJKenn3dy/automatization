@@ -4,7 +4,15 @@ import docx
 import mariadb
 
 
+import mariadb, datetime
 
+DB_CFG = dict(
+    host="localhost", port=3306, user="newuser",
+    password="852456qaz", database="IB", autocommit=True
+)
+
+def _conn():
+    return mariadb.connect(**DB_CFG)
 
 def create_tables():
 
@@ -240,81 +248,21 @@ def enter_license(enter_number, combobox, enter_key, scope, input_fio_user, name
     except mariadb.Error as e:
         print(f"Ошибка вставки записи в License: {e}")
 
-def enter_sczy(
-    skzi_name,      # Наименование ПО
-    skzi_type,      # Тип СКЗИ
-    skzi_version,   # Версия СКЗИ (будет сохранена в number_SCZY)
-    date_str,       # Дата (YYYY-MM-DD)
-    reg_number,     # Регистрационный номер (number_license)
-    location_text,  # Местонахождение (ТОМ)
-    location_TOM_text,  # Местонахождение (ТОМ)
-    from_whom,      # От кого получены (owner)
-    doc_info,       # Документ (date_and_number)
-    contract,       # Договор (contract)
-    owner_fio,      # Владелец/процесс (fullname_owner)
-    owners,         # Владельцы (owners)
-    buss_proc,      # Бизнес процессы (buss_proc)
-    additional,     # Дополнительно (additional)
-    note,           # Примечание (note)
-    certnum,        # Сертификат (number_certificate)
-    dateedit2_str   # Доп. дата (date_expired)
-):
-    try:
-        conn = mariadb.connect(
-            host="localhost",
-            port=3306,
-            user="newuser",
-            password="852456qaz",
-            database="IB",
-            autocommit=True
-        )
-        cur = conn.cursor()
-        insert_query = """
-            INSERT INTO SCZY (
-                name_of_SCZY,
-                sczy_type,
-                number_SCZY,
-                date,
-                number_license,
-                location,
-                location_TOM_text,
-                owner,
-                date_and_number,
-                contract,
-                fullname_owner,
-                owners,
-                buss_proc,
-                additional,
-                note,
-                number_certificate,
-                date_expired
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        cur.execute(insert_query, (
-            skzi_name,
-            skzi_type,
-            skzi_version,
-            date_str,
-            reg_number,
-            location_text,
-            location_TOM_text,
-            from_whom,
-            doc_info,
-            contract,
-            owner_fio,
-            owners,
-            buss_proc,
-            additional,
-            note,
-            certnum,
-            dateedit2_str
-        ))
-        conn.commit()
-        conn.close()
-    except mariadb.Error as e:
-        print(f"Ошибка вставки записи в SCZY: {e}")
-
+def enter_sczy(name, sczy_type, version, date_, reg_num,
+               location, location_tom, from_whom, doc_info,
+               contract, owner_fio, owners, buss_proc,
+               additional, note, cert_num, date_extra):
+    q = """INSERT INTO SCZY
+           (name_of_SCZY, sczy_type, number_SCZY, date, number_license,
+            location, location_TOM_text, owner, date_and_number, contract,
+            fullname_owner, owners, buss_proc, additional, note,
+            number_certificate, date_expired)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+    with _conn() as c:
+        c.cursor().execute(q, (name, sczy_type, version, date_, reg_num,
+                               location, location_tom, from_whom, doc_info,
+                               contract, owner_fio, owners, buss_proc,
+                               additional, note, cert_num, date_extra))
 def enter_keys(
     status_cb,
     nositel_type_cb,

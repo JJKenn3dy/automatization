@@ -16,6 +16,8 @@ from PyQt6.QtGui import QFont, QFontDatabase, QIcon, QPalette, QColor
 import re
 import subprocess
 from PyQt6 import QtWidgets
+from PyQt6.QtGui import QShortcut, QKeySequence
+
 from ui.page1 import create_page1
 from ui.page2 import create_page2
 from ui.page3 import create_page3
@@ -38,7 +40,12 @@ class MainWindow(QMainWindow):
 
         super().__init__()
         self.setWindowTitle("DOM RF")
-        self.resize(1400, 800)
+        self.resize(1500, 900)  # стартовые размеры
+        self.setMinimumSize(1280, 800)
+
+        # «полноэкран» по F11
+        QShortcut(QKeySequence("F11"), self,
+                  activated=lambda: self.showNormal() if self.isMaximized() else self.showMaximized())
 
         # 1) Создаем QStackedWidget
         self.stacked_widget = QStackedWidget()
@@ -144,6 +151,12 @@ class MainWindow(QMainWindow):
                 self.upload_cbr_file()  # пример: импорт CBR
             elif index == 4:
                 self.upload_tls_file()  # пример: импорт TLS
+
+            QMessageBox.information(
+                self,
+                "Импорт завершён",
+                f"Файл успешно импортирован.\n"
+            )
 
             dialog.accept()  # Закрыть диалог
 
