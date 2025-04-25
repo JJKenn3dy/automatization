@@ -110,7 +110,6 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
     f_group = QFontDatabase.font(fam, sty, 14); f_group.setBold(True)
 
     frame = QFrame()
-    frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:8px;")
     grid  = QGridLayout(frame)
     grid.setContentsMargins(12, 12, 12, 12)
     grid.setHorizontalSpacing(20)

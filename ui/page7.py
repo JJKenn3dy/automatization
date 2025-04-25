@@ -103,66 +103,29 @@ def _edit(ph: str, font=None):
 
 # helpers.py ­— финальный вариант фабрики
 def _combo(ph: str, items: list[str], font=None) -> QComboBox:
-    cb = QComboBox()
-    cb.addItems(items)
-    cb.setCurrentIndex(-1)
-    cb.setEditable(True)
-    cb.lineEdit().setPlaceholderText(ph)
-    cb.setFixedHeight(34)
+    cb = QComboBox(); cb.addItems(items); cb.setCurrentIndex(-1); cb.setEditable(True)
+    cb.lineEdit().setPlaceholderText(ph); cb.setFixedHeight(34)
     cb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-    if font:
-        cb.setFont(font)
-        cb.lineEdit().setFont(font)
-
+    if font: cb.setFont(font); cb.lineEdit().setFont(font)
     cb.setStyleSheet(f"""
-    /* ───────────────────────────────────────── основное поле ──── */
-    QComboBox {{
-        background:#fff;
-        border:1px solid #88959e;
-        border-radius:6px;
-        padding:2px 32px 2px 8px;            /* справа место под стрелку */
-        color:{TXT_DARK};
-    }}
-    QComboBox:focus {{ border:1px solid {ACCENT}; }}
-
-    QComboBox QLineEdit {{ border:none; padding:0; }}
-    QComboBox QLineEdit::placeholder {{ color:{ACCENT}; letter-spacing:.3px; }}
-
-    /* ───────────────────────────────────────── зона стрелки ───── */
-    QComboBox::drop-down {{
-        subcontrol-origin:padding;
-        subcontrol-position:top right;
-        width:26px;
-        border:none;                         /* ← убираем «усы» */
-        background:transparent;              /* ← БЕЗ заливки */
-    }}
-
-    /* рисуем ТОЛЬКО разделительную линию — псевдо-границей */
-    QComboBox::drop-down {{
-        border-left:1px solid #88959e;
-    }}
-    QComboBox:hover::drop-down {{
-        background:rgba(139,197,64,.12);     /* мягкий accent-hover */
-    }}
-
-    /* ───────────────────────────────────────── стрелка ────────── */
-    QComboBox::down-arrow {{
-        image:url(icons/chevron_down.svg);   /* 10×6 px одноцветный SVG */
-        width:10px; height:6px; margin-right:8px;
-    }}
-    QComboBox::down-arrow:on {{ image:url(icons/chevron_up.svg); }}
-
-    /* ───────────────────────────────────────── список ─────────── */
-    QComboBox QAbstractItemView {{
-        border:1px solid #88959e;
-        outline:0;
-        selection-background-color:rgba(139,197,64,.18);
-        padding:2px 0;
-    }}
-    """)
-
-    return cb
+        QComboBox {{
+            background:#fff; border:1px solid #88959e; border-radius:6px;
+            padding:2px 32px 2px 8px; color:{TXT_DARK};
+        }}
+        QComboBox:focus{{ border:1px solid {ACCENT}; }}
+        QComboBox QLineEdit {{ border:none; padding:0; }}
+        QComboBox QLineEdit::placeholder{{ color:{ACCENT}; }}
+        QComboBox::drop-down{{ subcontrol-origin:padding; subcontrol-position:top right;
+                               width:26px; border:none; background:transparent; 
+                               border-left:1px solid #88959e; }}
+        QComboBox::down-arrow{{ image:url(icons/chevron_down.png); width:10px;height:6px;
+                                margin-right:8px; }}
+        QComboBox::down-arrow:on{{ image:url(icons/chevron_up.png); }}
+        QComboBox QAbstractItemView {{
+            border:1px solid #88959e; outline:0;
+            selection-background-color:rgba(139,197,64,.18);
+        }}
+    """); return cb
 
 
 def _btn(text:str, h=BTN_H):
@@ -240,14 +203,21 @@ def create_page7(self) -> QWidget:
 
     scroll.setWidget(wrapper)
 
-
-
-    # Header внутри карточки
-    h = QWidget(); hb = QHBoxLayout(h); hb.setSpacing(12); hb.setContentsMargins(0,0,0,0)
-    back = QPushButton("←")
-    back.setFont(f_h2)  # 20 pt стрелка
-    h_txt = QLabel("Информация по СКЗИ")
-    h_txt.setFont(f_h2)  # 20 pt текст
+    # ── Header внутри карточки
+    hdr = QWidget()
+    hb = QHBoxLayout(hdr)
+    hb.setContentsMargins(0, 0, 0, 0)
+    hb.setSpacing(12)
+    back = _btn("←", 34)
+    back.setFixedWidth(42)
+    back.clicked.connect(self.go_to_second_page)
+    hb.addWidget(back, 0, Qt.AlignmentFlag.AlignLeft)
+    htxt = QLabel("Информация по СКЗИ")
+    htxt.setFont(f_h2)
+    htxt.setStyleSheet(f"color:{TXT_DARK};")
+    hb.addWidget(htxt, 0, Qt.AlignmentFlag.AlignLeft)
+    hb.addStretch(1)
+    cbox.addWidget(hdr)
 
     # ── рамка с формами ─────────────────────────────────────────────
     frame = QFrame()
@@ -262,6 +232,7 @@ def create_page7(self) -> QWidget:
     # секционные заголовки – меньше шрифт + жирный
     f_group = QFontDatabase.font(fam, sty, 14)
     f_group.setBold(True)
+
 
     for col, txt in enumerate(("Основные данные", "Дополнительные сведения")):
         h_lbl = QLabel(txt);
@@ -368,7 +339,7 @@ def create_page7(self) -> QWidget:
 
     # ── export-кнопки в ряд ───────────────────────────────────────────
     ex_row = QHBoxLayout(); ex_row.setSpacing(12)
-    ex_row.addWidget(_btn("Экспорт всех данных SCZY", 30))  # 36 px
+    ex_row.addWidget(_btn("Экспорт всех данных SCZY", 30))
     ex_row.addWidget(_btn("Экспорт отфильтрованных SCZY", 30))
     cbox.addLayout(ex_row);
 
