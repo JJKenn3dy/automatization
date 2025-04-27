@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit,
     QFrame, QGraphicsDropShadowEffect, QTableWidget, QHeaderView,
-    QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication
+    QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate
 )
 import pymysql
 from datetime import datetime
@@ -223,7 +223,6 @@ def create_page7(self) -> QWidget:
 
     card = QFrame()
     card.setMinimumWidth(CARD_W)
-    card.setMaximumWidth(1600)
     card.setSizePolicy(
                QSizePolicy.Policy.Expanding,
                QSizePolicy.Policy.Preferred
@@ -393,13 +392,17 @@ def create_page7(self) -> QWidget:
 
 # ─────────────────────────────────────────────────────────────────────
 def create_data_table7(self) -> QFrame:
-    frame = QFrame();
+    frame = QFrame()
     frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:8px;")
-    lay = QVBoxLayout(frame); lay.setContentsMargins(12,12,12,12); lay.setSpacing(6)
+    lay = QVBoxLayout(frame)
+    lay.setContentsMargins(12, 12, 12, 12)
+    lay.setSpacing(6)
 
+    # Поле поиска
     self.search_line7 = QLineEdit(placeholderText="Введите текст для поиска…")
     lay.addWidget(self.search_line7)
 
+    # Таблица
     self.table_widget7 = QTableWidget()
     headers = [
         "ID","Наименование СКЗИ","Тип СКЗИ","Версия","Дата","Рег. номер",
@@ -408,19 +411,36 @@ def create_data_table7(self) -> QFrame:
     ]
     self.table_widget7.setColumnCount(len(headers))
     self.table_widget7.setHorizontalHeaderLabels(headers)
-    self.table_widget7.setStyleSheet(
-                "QTableWidget{font-size:9pt;} "
-         "QHeaderView::section{font-weight:bold; font-size:9pt;}"
-        )
-    lay.addWidget(self.table_widget7)
-    self.table_widget7.verticalHeader().setVisible(False)   #  ← добавили
-    self.table_widget7.setMinimumWidth(CARD_W - PAD_H * 2)
+    self.table_widget7.verticalHeader().setVisible(False)
+    self.table_widget7.setMinimumWidth(CARD_W - PAD_H*2)
+
     hdr = self.table_widget7.horizontalHeader()
     hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    # уменьшаем минимальную ширину колонок до 60px
     hdr.setMinimumSectionSize(60)
+
+    # Включаем перенос текста и отключаем усечение
+    self.table_widget7.setWordWrap(True)
+    self.table_widget7.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+    # Делегат для WrapText
+    class WrapDelegate(QStyledItemDelegate):
+        def initStyleOption(self, option: QStyleOptionViewItem, index):
+            super().initStyleOption(option, index)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+
+    self.table_widget7.setItemDelegate(WrapDelegate(self.table_widget7))
+
+    # Автоподгонка высоты строк
+    self.table_widget7.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
+
+    lay.addWidget(self.table_widget7)
+
+    # Подключаем загрузку
     self.search_line7.textChanged.connect(lambda: load_data7(self))
     load_data7(self)
+
     return frame
 
 
@@ -428,36 +448,58 @@ def create_data_table7(self) -> QFrame:
 def load_data7(self):
     srch = self.search_line7.text().strip()
     try:
-        con = pymysql.connect(host="localhost", port=3306, user="newuser",
-                              password="852456qaz", database="IB",
-                              charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor)
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor
+        )
         cur = con.cursor()
         if srch:
             patt = f"%{srch}%"
             cur.execute("""
-                SELECT * FROM SCZY WHERE
-                CAST(ID AS CHAR) LIKE %s OR name_of_SCZY LIKE %s OR sczy_type LIKE %s
-                OR number_SCZY LIKE %s OR owner LIKE %s OR fullname_owner LIKE %s
-                ORDER BY ID DESC LIMIT 50
-            """, (patt,)*6)
+                SELECT * FROM SCZY
+                WHERE CAST(ID               AS CHAR) LIKE %s
+                   OR name_of_SCZY               LIKE %s
+                   OR sczy_type                  LIKE %s
+                   OR number_SCZY                LIKE %s
+                   OR CAST(date                AS CHAR) LIKE %s
+                   OR number_license             LIKE %s
+                   OR location                   LIKE %s
+                   OR location_TOM_text          LIKE %s
+                   OR owner                      LIKE %s
+                   OR date_and_number            LIKE %s
+                   OR contract                   LIKE %s
+                   OR fullname_owner             LIKE %s
+                   OR owners                     LIKE %s
+                   OR buss_proc                  LIKE %s
+                   OR additional                 LIKE %s
+                   OR note                       LIKE %s
+                   OR number_certificate         LIKE %s
+                   OR CAST(date_expired        AS CHAR) LIKE %s
+                ORDER BY ID DESC
+                LIMIT 50
+            """, (patt,) * 18)
         else:
             cur.execute("SELECT * FROM SCZY ORDER BY ID DESC LIMIT 500")
-        rows = cur.fetchall(); con.close()
+
+        rows = cur.fetchall()
+        con.close()
 
         self.table_widget7.setRowCount(len(rows))
-        for r,row in enumerate(rows):
+        for r, row in enumerate(rows):
             data = [
-                row.get("ID"), row.get("name_of_SCZY"), row.get("sczy_type"), row.get("number_SCZY"),
-                row.get("date"), row.get("number_license"), row.get("location"), row.get("location_TOM_text"),
-                row.get("owner"), row.get("date_and_number"), row.get("contract"), row.get("fullname_owner"),
-                row.get("owners"), row.get("buss_proc"), row.get("additional"), row.get("note"),
-                row.get("number_certificate"), row.get("date_expired")
+                row.get("ID"), row.get("name_of_SCZY"), row.get("sczy_type"),
+                row.get("number_SCZY"), row.get("date"), row.get("number_license"),
+                row.get("location"), row.get("location_TOM_text"), row.get("owner"),
+                row.get("date_and_number"), row.get("contract"), row.get("fullname_owner"),
+                row.get("owners"), row.get("buss_proc"), row.get("additional"),
+                row.get("note"), row.get("number_certificate"), row.get("date_expired")
             ]
-            for c,val in enumerate(data):
-                self.table_widget7.setItem(r,c,QTableWidgetItem(str(val) if val else ""))
+            for c, val in enumerate(data):
+                self.table_widget7.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+        self.table_widget7.resizeRowsToContents()
+
     except Exception as e:
         print("SCZY load error:", e)
-
 
 # ─────────────────────────────────────────────────────────────────────
 def save_value7(self):
@@ -500,50 +542,55 @@ def clear_fields(self):
 
 def fill_recent_values7(self, limit: int = 5) -> None:
     """
-    Берём последние `limit` строк из SCZY и заполняем выпадающие списки
-    уникальными значениями (без дубликатов).
+    Берём последние `limit` НЕПУСТЫХ значений из каждого поля таблицы SCZY
+    и добавляем уникальные записи в ComboBox-ы без дубликатов.
+    Теперь также подтягиваем поле `note` (Примечание).
     """
     try:
-        con = pymysql.connect(host="localhost", port=3306, user="newuser",
-                              password="852456qaz", database="IB",
-                              charset="utf8mb4",
-                              cursorclass=pymysql.cursors.DictCursor)
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
         cur = con.cursor()
-        cur.execute("""
-            SELECT name_of_SCZY, number_SCZY, owner,
-                   fullname_owner, buss_proc
-            FROM SCZY ORDER BY ID DESC LIMIT %s
-        """, (limit,))
-        rows = cur.fetchall(); con.close()
 
-        # множества уникальных значений
-        names   = {r["name_of_SCZY"]     for r in rows if r["name_of_SCZY"]}
-        vers    = {r["number_SCZY"]      for r in rows if r["number_SCZY"]}
-        owners  = {r["owner"]            for r in rows if r["owner"]}
-        fullown = {r["fullname_owner"]   for r in rows if r["fullname_owner"]}
-        bproc   = {r["buss_proc"]        for r in rows if r["buss_proc"]}
+        # helper: получить последние distinct непустые значений для одного столбца
+        def fetch(column: str):
+            cur.execute(f"""
+                SELECT DISTINCT `{column}` AS val
+                FROM SCZY
+                WHERE `{column}` <> ''
+                ORDER BY ID DESC
+                LIMIT %s
+            """, (limit,))
+            return [row['val'] for row in cur.fetchall()]
 
-        def _sync(cb: QComboBox, values: set[str]):
-            """Добавить в ComboBox уникальные values, НЕ изменяя текущее поле."""
-            if not values:
-                return
+        names    = fetch("name_of_SCZY")
+        vers     = fetch("number_SCZY")
+        owners   = fetch("owner")
+        fullown  = fetch("fullname_owner")
+        bproc    = fetch("buss_proc")
+        notes    = fetch("note")          # добавили для Примечания
+
+        con.close()
+
+        def _sync(cb: QComboBox, values: list[str]):
             old = {cb.itemText(i) for i in range(cb.count())}
             new = [v for v in values if v not in old]
+            if not new:
+                return
+            had = cb.currentIndex() != -1
+            cb.insertItems(0, new)
+            if not had:
+                cb.setCurrentIndex(-1)
+                cb.clearEditText()
 
-            if new:
-                # запомним, был ли выбран элемент
-                had_selection = cb.currentIndex() != -1
-                cb.insertItems(0, new)
-                # если до вставки выбор отсутствовал — вернём состояние «пусто»
-                if not had_selection:
-                    cb.setCurrentIndex(-1)  # ← ключевая строка
-                    cb.clearEditText()  # убираем текст из lineEdit
-
-        _sync(self.skzi_name_cb, names)
+        _sync(self.skzi_name_cb,    names)
         _sync(self.skzi_version_cb, vers)
-        _sync(self.from_whom_cb, owners)
-        _sync(self.owners, fullown)
-        _sync(self.buss_proc, bproc)
+        _sync(self.from_whom_cb,    owners)
+        _sync(self.owners,          fullown)
+        _sync(self.buss_proc,       bproc)
+        _sync(self.note_cb,         notes)   # синхронизируем Примечание
 
     except Exception as e:
         print("fill_recent_values7 error:", e)

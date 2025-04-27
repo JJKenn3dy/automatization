@@ -5,7 +5,8 @@ from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout,
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit, QFrame,
-    QGraphicsDropShadowEffect, QSizePolicy, QScrollArea, QTableWidget, QHeaderView, QTableWidgetItem
+    QGraphicsDropShadowEffect, QSizePolicy, QScrollArea, QTableWidget, QHeaderView, QTableWidgetItem,
+    QStyleOptionViewItem, QStyledItemDelegate
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
@@ -127,7 +128,7 @@ def create_page10(self) -> QWidget:
     wrapper = QWidget(); wrap_l = QVBoxLayout(wrapper); wrap_l.setContentsMargins(0,0,0,0)
 
     card = QFrame()
-    card.setMinimumWidth(1300); card.setMaximumWidth(1600)
+    card.setMinimumWidth(1300);
     card.setStyleSheet(f"background:#fff;border-radius:{CARD_R}px;")
     card.setGraphicsEffect(QGraphicsDropShadowEffect(
         blurRadius=32, xOffset=0, yOffset=4, color=QColor(0,0,0,55)))
@@ -219,12 +220,11 @@ def create_page10(self) -> QWidget:
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value10(self))
 
+    fill_recent_values10(self)
+
     return page
 
 def create_data_table10(self) -> QWidget:
-    """
-    Создает виджет с поисковой строкой и таблицей для отображения последних записей из таблицы TLS.
-    """
     widget = QWidget()
     layout = QVBoxLayout(widget)
     layout.setSpacing(5)
@@ -247,9 +247,30 @@ def create_data_table10(self) -> QWidget:
     ]
     self.table_widget10.setColumnCount(len(headers))
     self.table_widget10.setHorizontalHeaderLabels(headers)
+
+    # Перенос текста и отключаем усечение
+    self.table_widget10.setWordWrap(True)
+    self.table_widget10.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+    # Делегат для WrapText
+    class WrapDelegate(QStyledItemDelegate):
+        def initStyleOption(self, option, index):
+            super().initStyleOption(option, index)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+
+    self.table_widget10.setItemDelegate(WrapDelegate(self.table_widget10))
+
+    # Растягиваем колонки и авто-подгоняем высоту строк
+    hdr = self.table_widget10.horizontalHeader()
+    hdr.setStretchLastSection(True)
+    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    self.table_widget10.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
+
     layout.addWidget(self.table_widget10)
 
-    # Обновление таблицы при изменении текста поиска
+    # Подключаем загрузку и первоначальную отрисовку
     self.search_line10.textChanged.connect(lambda: load_data10(self))
     load_data10(self)
 
@@ -257,76 +278,65 @@ def create_data_table10(self) -> QWidget:
 
 def load_data10(self):
     """
-    Загружает из базы данных последние 50 записей из таблицы TLS.
-    При наличии поискового запроса выполняется фильтрация по нескольким полям.
+    Загружает из базы данных записи из таблицы TLS.
+    При наличии текста в поиске — фильтрация по всем столбцам.
     """
     search_text = self.search_line10.text().strip()
     try:
-        connection = pymysql.connect(
-            host="localhost",
-            port=3306,
-            user="newuser",
-            password="852456qaz",
-            database="IB",
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
+        import pymysql
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor
         )
-        cursor = connection.cursor()
+        cur = con.cursor()
         if search_text:
-            query = """
+            patt = f"%{search_text}%"
+            cur.execute("""
                 SELECT * FROM TLS
-                WHERE CAST(ID AS CHAR) LIKE %s 
-                   OR number LIKE %s 
-                   OR date LIKE %s 
-                   OR environment LIKE %s 
-                   OR access LIKE %s 
-                   OR issuer LIKE %s 
-                   OR initiator LIKE %s 
-                   OR owner LIKE %s 
-                   OR algorithm LIKE %s 
-                   OR scope LIKE %s 
-                   OR DNS LIKE %s 
-                   OR resolution LIKE %s 
-                   OR note LIKE %s
+                WHERE CAST(ID          AS CHAR) LIKE %s
+                   OR number           LIKE %s
+                   OR date             LIKE %s
+                   OR environment      LIKE %s
+                   OR access           LIKE %s
+                   OR issuer           LIKE %s
+                   OR initiator        LIKE %s
+                   OR owner            LIKE %s
+                   OR algorithm        LIKE %s
+                   OR scope            LIKE %s
+                   OR DNS              LIKE %s
+                   OR resolution       LIKE %s
+                   OR note             LIKE %s
                 ORDER BY ID DESC
                 LIMIT 50
-            """
-            like_pattern = f"%{search_text}%"
-            cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern,
-                                     like_pattern, like_pattern, like_pattern, like_pattern,
-                                     like_pattern, like_pattern, like_pattern, like_pattern, like_pattern))
+            """, (patt,) * 13)
         else:
-            query = "SELECT * FROM TLS ORDER BY ID DESC LIMIT 500"
-            cursor.execute(query)
-        results = cursor.fetchall()
-        connection.close()
+            cur.execute("SELECT * FROM TLS ORDER BY ID DESC LIMIT 500")
 
-        self.table_widget10.horizontalHeader().setStretchLastSection(True)
-        self.table_widget10.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        rows = cur.fetchall()
+        con.close()
 
-        self.table_widget10.setRowCount(len(results))
-        for row_idx, row_data in enumerate(results):
-            # Порядок колонок согласно структуре таблицы TLS:
-            # ID, number, date, environment, access, issuer, initiator, owner,
-            # algorithm, scope, DNS, resolution, note
-            columns = [
-                row_data.get("ID"),
-                row_data.get("number"),
-                row_data.get("date"),
-                row_data.get("environment"),
-                row_data.get("access"),
-                row_data.get("issuer"),
-                row_data.get("initiator"),
-                row_data.get("owner"),
-                row_data.get("algorithm"),
-                row_data.get("scope"),
-                row_data.get("DNS"),
-                row_data.get("resolution"),
-                row_data.get("note")
+        self.table_widget10.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            cols = [
+                row.get("ID"),
+                row.get("number"),
+                row.get("date"),
+                row.get("environment"),
+                row.get("access"),
+                row.get("issuer"),
+                row.get("initiator"),
+                row.get("owner"),
+                row.get("algorithm"),
+                row.get("scope"),
+                row.get("DNS"),
+                row.get("resolution"),
+                row.get("note"),
             ]
-            for col_idx, value in enumerate(columns):
-                item = QTableWidgetItem(str(value) if value is not None else "")
-                self.table_widget10.setItem(row_idx, col_idx, item)
+            for c, val in enumerate(cols):
+                self.table_widget10.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+
+        self.table_widget10.resizeRowsToContents()
+
     except Exception as e:
         print("Ошибка загрузки данных для TLS:", e)
 
@@ -360,6 +370,8 @@ def save_value10(self):
     )
     clear_fields(self)
     # Обновляем таблицу сразу после сохранения
+
+    fill_recent_values10(self)
     load_data10(self)
 
 def clear_fields(self):
@@ -375,3 +387,70 @@ def clear_fields(self):
     self.dns_le.clear()
     self.resolution_cb.clearEditText()
     self.note_le.clear()
+
+
+def fill_recent_values10(self, limit: int = 5) -> None:
+    """
+    Берёт последние `limit` строк из таблицы TLS и
+    добавляет уникальные значения в выпадающие списки:
+        • self.env_cb
+        • self.access_cb
+        • self.issuer_cb
+        • self.initiator_cb
+        • self.owner_cb
+        • self.algo_cb
+        • self.scope_cb
+        • self.resolution_cb
+    Без дубликатов, новые вставляются в начало списка.
+    """
+    try:
+        con = pymysql.connect(
+            host="localhost", port=3306,
+            user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cur = con.cursor()
+        cur.execute("""
+            SELECT environment, access, issuer, initiator,
+                   owner, algorithm, scope, resolution
+            FROM TLS
+            ORDER BY ID DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall()
+        con.close()
+
+        # уникальные множества
+        envs = {r["environment"] for r in rows if r["environment"]}
+        accs = {r["access"]      for r in rows if r["access"]}
+        issu = {r["issuer"]      for r in rows if r["issuer"]}
+        inits= {r["initiator"]   for r in rows if r["initiator"]}
+        owns = {r["owner"]       for r in rows if r["owner"]}
+        algs = {r["algorithm"]   for r in rows if r["algorithm"]}
+        scps = {r["scope"]       for r in rows if r["scope"]}
+        reso = {r["resolution"]  for r in rows if r["resolution"]}
+
+        def _sync(cb: QComboBox, vals: set[str]):
+            if not vals:
+                return
+            old = {cb.itemText(i) for i in range(cb.count())}
+            new = [v for v in vals if v not in old]
+            if new:
+                had = cb.currentIndex() != -1
+                cb.insertItems(0, new)
+                if not had:
+                    cb.setCurrentIndex(-1)
+                    cb.clearEditText()
+
+        _sync(self.env_cb,      envs)
+        _sync(self.access_cb,   accs)
+        _sync(self.issuer_cb,   issu)
+        _sync(self.initiator_cb,inits)
+        _sync(self.owner_cb,    owns)
+        _sync(self.algo_cb,     algs)
+        _sync(self.scope_cb,    scps)
+        _sync(self.resolution_cb,reso)
+
+    except Exception as e:
+        print("fill_recent_values10 error:", e)

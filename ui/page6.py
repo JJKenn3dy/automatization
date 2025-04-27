@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QFrame,
     QLabel, QPushButton, QRadioButton, QScrollArea, QLineEdit, QComboBox,
     QDateEdit, QTableWidget, QHeaderView, QTableWidgetItem, QApplication,
-    QGraphicsDropShadowEffect, QMessageBox
+    QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V
@@ -182,6 +182,12 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
     self.extra_lbl.hide(); self.input_date.hide()
     FR.addRow(self.extra_lbl, self.input_date)
 
+    for form in (FL, FR):
+        for i in range(form.rowCount()):
+            lbl = form.itemAt(i, QFormLayout.ItemRole.LabelRole).widget()
+            lbl.setStyleSheet(f"color:{TXT_DARK};border:none;background:transparent;padding:0;margin:0;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
     # показать/скрыть дополнительное поле
     def _toggle():
         show = self.rb_taken.isChecked()
@@ -189,24 +195,7 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
         self.input_date.setVisible(show)
     for rb in (self.rb_taken, self.rb_issued, self.rb_installed): rb.toggled.connect(_toggle)
 
-    # валидация
-    self.enter_number.textChanged.connect(
-        lambda: set_edit_error_style(self.enter_number,
-                not (self.enter_number.text().isdigit())))
-    self.combobox.lineEdit().textChanged.connect(
-        lambda: set_combo_error_style(self.combobox,
-                len(self.combobox.currentText().strip()) == 0))
-    self.enter_key.textChanged.connect(
-        lambda: set_edit_error_style(self.enter_key, len(self.enter_key.text()) == 0))
-    self.scope.lineEdit().textChanged.connect(
-        lambda: set_combo_error_style(self.scope,
-                len(self.scope.currentText().strip()) == 0))
-    self.input_fio_user.textChanged.connect(
-        lambda: set_edit_error_style(self.input_fio_user, len(self.input_fio_user.text()) <= 3))
-    self.input_apm.textChanged.connect(
-        lambda: set_edit_error_style(self.input_apm, len(self.input_apm.text()) <= 3))
-    self.user.textChanged.connect(
-        lambda: set_edit_error_style(self.user, len(self.user.text()) <= 3))
+
 
     return frame
 
@@ -215,13 +204,21 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
 # ║   Т А Б Л И Ц А   +   П О И С К                                   ║
 # ╚═══════════════════════════════════════════════════════════════════╝
 def create_data_table(self) -> QFrame:
+    """
+    Создаёт фрейм с полем поиска и таблицей,
+    в которой можно править ячейки двойным кликом.
+    """
     frame = QFrame()
     frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:8px;")
-    lay = QVBoxLayout(frame); lay.setContentsMargins(12, 12, 12, 12)
+    lay = QVBoxLayout(frame)
+    lay.setContentsMargins(12, 12, 12, 12)
 
+
+    # Поле поиска
     self.search_line = QLineEdit(placeholderText="Введите текст для поиска…")
     lay.addWidget(self.search_line)
 
+    # Таблица
     self.table_widget = QTableWidget()
     self.table_widget.setColumnCount(12)
     self.table_widget.setHorizontalHeaderLabels([
@@ -229,20 +226,53 @@ def create_data_table(self) -> QFrame:
         "ФИО","APM","Дата","ФИО IT","Статус","Отметка","Дата док-та"
     ])
     self.table_widget.verticalHeader().setVisible(False)
-    self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    hdr = self.table_widget.horizontalHeader()
+    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    self.table_widget.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
+
+    # Перенос текста без «…»
+    self.table_widget.setWordWrap(True)
+    self.table_widget.setTextElideMode(Qt.TextElideMode.ElideNone)
+    class WrapDelegate(QStyledItemDelegate):
+        def initStyleOption(self, option: QStyleOptionViewItem, index):
+            super().initStyleOption(option, index)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+    self.table_widget.setItemDelegate(WrapDelegate(self.table_widget))
+
+    # 1) Разрешаем редактирование ячеек
+    self.table_widget.setEditTriggers(
+        QAbstractItemView.EditTrigger.DoubleClicked |
+        QAbstractItemView.EditTrigger.SelectedClicked
+    )
+    # 2) Подписываемся на изменение
+    self.table_widget.itemChanged.connect(lambda item: on_license_item_changed(self, item))
+
+    self.table_widget.itemDoubleClicked.connect(
+        lambda item: on_row_double_clicked(self, item)
+    )
+
     lay.addWidget(self.table_widget)
 
+    # Поиск
     self.search_line.textChanged.connect(lambda: load_data(self))
-    load_data(self)               # первичная загрузка
+    load_data(self)
+
     return frame
+
+
 
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   З А Г Р У З К А   Д А Н Н Ы Х                                   ║
 # ╚═══════════════════════════════════════════════════════════════════╝
 def load_data(self):
+    """
+    Загружает данные в таблицу License,
+    при поиске фильтруя по всем столбцам.
+    """
     search_text = self.search_line.text().strip()
-
     try:
         con = pymysql.connect(
             host="localhost", port=3306, user="newuser", password="852456qaz",
@@ -254,40 +284,86 @@ def load_data(self):
             patt = f"%{search_text}%"
             cur.execute("""
                 SELECT * FROM License
-                WHERE CAST(number AS CHAR) LIKE %s
-                   OR name_of_soft LIKE %s
-                   OR fullname      LIKE %s
-                ORDER BY ID DESC LIMIT 50
-            """, (patt, patt, patt))
+                WHERE CAST(ID           AS CHAR) LIKE %s
+                   OR CAST(number       AS CHAR) LIKE %s
+                   OR name_of_soft             LIKE %s
+                   OR number_lic               LIKE %s
+                   OR scop_using               LIKE %s
+                   OR fullname                 LIKE %s
+                   OR name_apm                 LIKE %s
+                   OR CAST(date          AS CHAR) LIKE %s
+                   OR fullname_it              LIKE %s
+                   OR CAST(status       AS CHAR) LIKE %s
+                   OR input_mark               LIKE %s
+                   OR input_date               LIKE %s
+                ORDER BY ID DESC
+                LIMIT 50
+            """, (patt,)*12)
         else:
             cur.execute("SELECT * FROM License ORDER BY ID DESC LIMIT 500")
 
         rows = cur.fetchall()
         con.close()
 
+        # Блокируем сигнал itemChanged, чтобы не реагировать на программное заполнение
+        self.table_widget.blockSignals(True)
         self.table_widget.setRowCount(len(rows))
-
         for r, row in enumerate(rows):
             columns = [
-                row.get("ID"),          row.get("number"),
-                row.get("name_of_soft"),row.get("number_lic"),
-                row.get("scop_using"),  row.get("fullname"),
-                row.get("name_apm"),    row.get("date"),
-                row.get("fullname_it"), row.get("status"),
-                row.get("input_mark"),  row.get("input_date")
+                row.get("ID"),
+                row.get("number"),
+                row.get("name_of_soft"),
+                row.get("number_lic"),
+                row.get("scop_using"),
+                row.get("fullname"),
+                row.get("name_apm"),
+                row.get("date"),
+                row.get("fullname_it"),
+                row.get("status"),
+                row.get("input_mark"),
+                row.get("input_date")
             ]
             for c, val in enumerate(columns):
-                if c >= self.table_widget.columnCount():
-                    break
                 item = QTableWidgetItem(str(val) if val is not None else "")
+                # выравниваем по левому краю
+                item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 self.table_widget.setItem(r, c, item)
-
-            # ← здесь строка уже создана — безопасно задаём высоту
-            self.table_widget.setRowHeight(r, 40)
+        self.table_widget.resizeRowsToContents()
+        self.table_widget.blockSignals(False)
 
     except Exception as e:
         print("Ошибка загрузки данных:", e)
 
+def on_license_item_changed(self, item: QTableWidgetItem):
+    """
+    При ручном редактировании ячейки: сохраняем новое значение в БД.
+    ID (столбец 0) не правим.
+    """
+    if item.column() == 0:
+        return
+
+    field_names = [
+        "ID", "number", "name_of_soft", "number_lic", "scop_using",
+        "fullname", "name_apm", "date", "fullname_it", "status",
+        "input_mark", "input_date"
+    ]
+    field = field_names[item.column()]
+    record_id = self.table_widget.item(item.row(), 0).text()
+    new_value = item.text()
+
+    try:
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cur = con.cursor()
+        cur.execute(f"UPDATE License SET `{field}` = %s WHERE ID = %s",
+                    (new_value, record_id))
+        con.commit()
+        con.close()
+    except Exception as e:
+        QMessageBox.critical(self, "Ошибка сохранения", str(e))
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   С О Х Р А Н Е Н И Е   В   Б Д                                   ║
@@ -378,8 +454,9 @@ def fill_recent_values6(self, limit: int = 5) -> None:
                               cursorclass=pymysql.cursors.DictCursor)
         cur = con.cursor()
         cur.execute("""
-            SELECT name_of_soft, scop_using
+            SELECT DISTINCT name_of_soft, scop_using
             FROM License
+            WHERE name_of_soft <> '' AND scop_using <> ''
             ORDER BY ID DESC
             LIMIT %s
         """, (limit,))
@@ -411,3 +488,48 @@ def fill_recent_values6(self, limit: int = 5) -> None:
 
     except Exception as e:
         print("fill_recent_values6 error:", e)
+
+
+
+def on_row_double_clicked(self, item: QTableWidgetItem):
+    """При двойном клике заполняем форму данными из выбранной строки."""
+    row = item.row()
+    # вспомогательная лямбда — безопасно вытягивает текст
+    get = lambda col: self.table_widget.item(row, col).text() if self.table_widget.item(row, col) else ""
+
+    # читаем колонки по их индексам
+    num       = get(1)
+    po        = get(2)
+    lic_num   = get(3)
+    area      = get(4)
+    fio_user  = get(5)
+    apm       = get(6)
+    date_str  = get(7)
+    fio_it    = get(8)
+    status_v  = get(9)
+    doc_mark  = get(10)
+    doc_date  = get(11)
+
+    # заполняем поля формы
+    self.enter_number.setText(num)
+    self.combobox.lineEdit().setText(po)
+    self.enter_key.setText(lic_num)
+    self.scope.lineEdit().setText(area)
+    self.input_fio_user.setText(fio_user)
+    self.input_apm.setText(apm)
+
+    dt = QDate.fromString(date_str, "yyyy-MM-dd")
+    if dt.isValid():
+        self.dateedit.setDate(dt)
+
+    self.user.setText(fio_it)
+
+    # статус: 1=Выдано,2=Установлено,3=Изъято
+    self.rb_issued.setChecked(status_v == "1")
+    self.rb_installed.setChecked(status_v == "2")
+    self.rb_taken.setChecked(status_v == "3")
+
+    # показываем/скрываем поле «Документ/дата» и заполняем его
+    self.extra_lbl.setVisible(self.rb_taken.isChecked())
+    self.input_date.setVisible(self.rb_taken.isChecked())
+    self.input_date.setText(doc_date)

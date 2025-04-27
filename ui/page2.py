@@ -137,7 +137,7 @@ def create_page2(self) -> QWidget:
     g.addWidget(g3, 5, 0, 1, 2, alignment=Qt.AlignmentFlag.AlignLeft)
 
     g.addWidget(
-        _dark_btn("TSL", font_btn, self.go_to_ten_page),
+        _dark_btn("TLS", font_btn, self.go_to_ten_page),
         6, 0, 1, 2
     )
 

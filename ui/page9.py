@@ -4,7 +4,7 @@ from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QLabel, QScrollArea, QFrame, QGraphicsDropShadowEffect, QDateEdit, QSizePolicy, QPushButton, QComboBox, QLineEdit,
-    QTableWidget, QHeaderView, QTableWidgetItem
+    QTableWidget, QHeaderView, QTableWidgetItem, QStyleOptionViewItem, QStyledItemDelegate
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
@@ -122,7 +122,7 @@ def create_page9(self) -> QWidget:
     wrapper = QWidget(); wrap_l = QVBoxLayout(wrapper); wrap_l.setContentsMargins(0,0,0,0)
 
     card = QFrame()
-    card.setMinimumWidth(1300); card.setMaximumWidth(1600)
+    card.setMinimumWidth(1300);
     card.setStyleSheet(f"background:#fff;border-radius:{CARD_R}px;")
     card.setGraphicsEffect(QGraphicsDropShadowEffect(
         blurRadius=32, xOffset=0, yOffset=4, color=QColor(0,0,0,55)))
@@ -206,17 +206,16 @@ def create_page9(self) -> QWidget:
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value9(self))
 
+    fill_recent_values9(self)
+
     return page
 
 def create_data_table9(self) -> QWidget:
-    """
-    Создает виджет с поисковой строкой и таблицей для отображения последних записей из таблицы CBR.
-    """
     widget = QWidget()
     layout = QVBoxLayout(widget)
     layout.setSpacing(5)
 
-    # Поисковая строка
+    # Поисковая строка (без изменений)
     search_layout = QHBoxLayout()
     search_label = QLabel("Поиск:")
     self.search_line9 = QLineEdit()
@@ -225,7 +224,7 @@ def create_data_table9(self) -> QWidget:
     search_layout.addWidget(self.search_line9)
     layout.addLayout(search_layout)
 
-    # Таблица для отображения данных из CBR
+    # Таблица
     self.table_widget9 = QTableWidget()
     headers = [
         "ID", "Заявка", "Статус", "Серийный номер", "Номер ключа",
@@ -234,9 +233,30 @@ def create_data_table9(self) -> QWidget:
     ]
     self.table_widget9.setColumnCount(len(headers))
     self.table_widget9.setHorizontalHeaderLabels(headers)
+
+    # Перенос текста и убираем «...»
+    self.table_widget9.setWordWrap(True)
+    self.table_widget9.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+    # Делегат для WrapText
+    class WrapDelegate(QStyledItemDelegate):
+        def initStyleOption(self, option, index):
+            super().initStyleOption(option, index)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+
+    self.table_widget9.setItemDelegate(WrapDelegate(self.table_widget9))
+
+    # Растягиваем колонки и авто-подгонка высоты строк
+    hdr = self.table_widget9.horizontalHeader()
+    hdr.setStretchLastSection(True)
+    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    self.table_widget9.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
+
     layout.addWidget(self.table_widget9)
 
-    # Обновление таблицы при изменении текста поиска
+    # Подключаем загрузку
     self.search_line9.textChanged.connect(lambda: load_data9(self))
     load_data9(self)
 
@@ -244,69 +264,62 @@ def create_data_table9(self) -> QWidget:
 
 def load_data9(self):
     """
-    Загружает из базы данных последние 50 записе из таблицы CBR.
-    Если введён поисковый запрос, выполняется фильтрация по нескольким полям.
+    Загружает из базы данных записи из таблицы CBR.
+    При наличии текста в поиске — фильтрация по всем столбцам.
     """
     search_text = self.search_line9.text().strip()
     try:
-        import pymysql
-        connection = pymysql.connect(
-            host="localhost",
-            port=3306,
-            user="newuser",
-            password="852456qaz",
-            database="IB",
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor
         )
-        cursor = connection.cursor()
+        cur = con.cursor()
         if search_text:
-            query = """
+            patt = f"%{search_text}%"
+            cur.execute("""
                 SELECT * FROM CBR
-                WHERE CAST(ID AS CHAR) LIKE %s 
-                   OR number LIKE %s 
-                   OR status LIKE %s 
-                   OR number_serial LIKE %s 
-                   OR number_key LIKE %s 
-                   OR owner LIKE %s 
-                   OR scope_using LIKE %s 
-                   OR fullname_owner LIKE %s
+                WHERE CAST(ID             AS CHAR) LIKE %s
+                   OR number              LIKE %s
+                   OR status              LIKE %s
+                   OR number_serial       LIKE %s
+                   OR number_key          LIKE %s
+                   OR owner               LIKE %s
+                   OR scope_using         LIKE %s
+                   OR fullname_owner      LIKE %s
+                   OR CAST(date_start     AS CHAR) LIKE %s
+                   OR CAST(date_end       AS CHAR) LIKE %s
+                   OR additional          LIKE %s
+                   OR note                LIKE %s
                 ORDER BY ID DESC
-                LIMIT 50
-            """
-            like_pattern = f"%{search_text}%"
-            cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern,
-                                     like_pattern, like_pattern, like_pattern, like_pattern))
+                LIMIT 500
+            """, (patt,) * 12)
         else:
-            query = "SELECT * FROM CBR ORDER BY ID DESC LIMIT 500"
-            cursor.execute(query)
-        results = cursor.fetchall()
-        connection.close()
+            cur.execute("SELECT * FROM CBR ORDER BY ID DESC LIMIT 500")
 
-        self.table_widget9.horizontalHeader().setStretchLastSection(True)
-        self.table_widget9.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        rows = cur.fetchall()
+        con.close()
 
-        self.table_widget9.setRowCount(len(results))
-        for row_idx, row_data in enumerate(results):
-            # Структура CBR: ID, number, status, number_serial, number_key, owner,
-            # scope_using, fullname_owner, date_start, date_end, additional, note
-            columns = [
-                row_data.get("ID"),
-                row_data.get("number"),
-                row_data.get("status"),
-                row_data.get("number_serial"),
-                row_data.get("number_key"),
-                row_data.get("owner"),
-                row_data.get("scope_using"),
-                row_data.get("fullname_owner"),
-                row_data.get("date_start"),
-                row_data.get("date_end"),
-                row_data.get("additional"),
-                row_data.get("note")
+        self.table_widget9.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            cols = [
+                row.get("ID"),
+                row.get("number"),
+                row.get("status"),
+                row.get("number_serial"),
+                row.get("number_key"),
+                row.get("owner"),
+                row.get("scope_using"),
+                row.get("fullname_owner"),
+                row.get("date_start"),
+                row.get("date_end"),
+                row.get("additional"),
+                row.get("note"),
             ]
-            for col_idx, value in enumerate(columns):
-                item = QTableWidgetItem(str(value) if value is not None else "")
-                self.table_widget9.setItem(row_idx, col_idx, item)
+            for c, val in enumerate(cols):
+                self.table_widget9.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+
+        self.table_widget9.resizeRowsToContents()
+
     except Exception as e:
         print("Ошибка загрузки данных для CBR:", e)
 
@@ -331,6 +344,7 @@ def save_value9(self):
               additional1_le, additional2_le)
     clear_fields(self)
     # Обновляем таблицу сразу после сохранения
+    fill_recent_values9(self)
     load_data9(self)
 
 def clear_fields(self):
@@ -345,3 +359,67 @@ def clear_fields(self):
     self.dateedit2.setDate(QDate.currentDate())
     self.additional1_le.clear()
     self.additional2_le.clear()
+
+
+def fill_recent_values9(self, limit: int = 5) -> None:
+    """
+    Заполняет динамические QComboBox-ы уникальными значениями
+    из последних `limit` записей таблицы CBR:
+        • self.nositel_serial_cb  – «Носитель (серийный)»
+        • self.issuer_cb_cbr      – «УЦ»
+        • self.scope_cb_cbr       – «Область/ЭДО»
+        • self.owner_cb_cbr       – «Владелец» (ФИО)
+    Пропускает пустые и дубли.
+    """
+    try:
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        cur = con.cursor()
+        cur.execute("""
+            SELECT number_serial, owner, scope_using, fullname_owner
+            FROM CBR
+            ORDER BY ID DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall()
+        con.close()
+
+        # вспомогательная: оставить только первые вхождения непустых значений
+        def unique(seq):
+            seen = set()
+            out = []
+            for v in seq:
+                if v and v not in seen:
+                    seen.add(v)
+                    out.append(v)
+            return out
+
+        serials    = unique(r["number_serial"]  for r in rows)
+        ucs        = unique(r["owner"]          for r in rows)
+        scopes     = unique(r["scope_using"]    for r in rows)
+        fullnames  = unique(r["fullname_owner"] for r in rows)
+
+        def _sync(cb: QComboBox, values: list[str]):
+            """Вставить в cb новые values в начало, не трогая текущее вводимое."""
+            if not values:
+                return
+            existing = {cb.itemText(i) for i in range(cb.count())}
+            to_add = [v for v in values if v not in existing]
+            if not to_add:
+                return
+            had_sel = cb.currentIndex() != -1
+            cb.insertItems(0, to_add)
+            if not had_sel:
+                cb.setCurrentIndex(-1)
+                cb.clearEditText()
+
+        _sync(self.nositel_serial_cb, serials)
+        _sync(self.issuer_cb_cbr,     ucs)
+        _sync(self.scope_cb_cbr,      scopes)
+        _sync(self.owner_cb_cbr,      fullnames)
+
+    except Exception as e:
+        print("fill_recent_values9 error:", e)

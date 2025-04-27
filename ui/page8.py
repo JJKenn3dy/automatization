@@ -3,7 +3,8 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
-    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QDateEdit
+    QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QDateEdit,
+    QStyleOptionViewItem, QStyledItemDelegate
 )
 from PyQt6.QtCore import Qt, QDate, QTimer
 
@@ -136,7 +137,7 @@ def create_page8(self) -> QWidget:
     wrapper = QWidget(); wrap_l = QVBoxLayout(wrapper); wrap_l.setContentsMargins(0,0,0,0)
 
     card = QFrame()
-    card.setMinimumWidth(1300); card.setMaximumWidth(1600)
+    card.setMinimumWidth(1300);
     card.setStyleSheet(f"background:#fff;border-radius:{CARD_R}px;")
     card.setGraphicsEffect(QGraphicsDropShadowEffect(
             blurRadius=32, xOffset=0, yOffset=4, color=QColor(0,0,0,55)))
@@ -246,25 +247,41 @@ def create_data_table8(self) -> QWidget:
     search_layout.addWidget(self.search_line8)
     layout.addLayout(search_layout)
 
-
     # Таблица для отображения данных из KeysTable
     self.table_widget8 = QTableWidget()
     headers = [
         "ID", "Статус", "Тип", "Серийный номер", "УЦ",
         "Область", "Владелец", "VIP/Critical",
-        "Дата начала", "Дата окончания", "Дополнительно", "Номер обращения", "Примечание"
+        "Дата начала", "Дата окончания", "Дополнительно",
+        "Номер обращения", "Примечание"
     ]
     self.table_widget8.setColumnCount(len(headers))
     self.table_widget8.setHorizontalHeaderLabels(headers)
 
-    self.table_widget8.horizontalHeader().setStretchLastSection(True)
-    self.table_widget8.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    # Включаем перенос и убираем усечение
+    self.table_widget8.setWordWrap(True)
+    self.table_widget8.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+    # Делегат для WrapText
+    class WrapDelegate(QStyledItemDelegate):
+        def initStyleOption(self, option, index):
+            super().initStyleOption(option, index)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+
+    self.table_widget8.setItemDelegate(WrapDelegate(self.table_widget8))
+
+    # Растягиваем колонки и авто-подгоняем по высоте
+    hdr = self.table_widget8.horizontalHeader()
+    hdr.setStretchLastSection(True)
+    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    self.table_widget8.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
 
     layout.addWidget(self.table_widget8)
 
-    # Обновление таблицы при изменении текста поиска
+    # Обновление таблицы при изменении поиска
     self.search_line8.textChanged.connect(lambda: load_data8(self))
-    # Первоначальная загрузка данных
     load_data8(self)
     fill_recent_values8(self)
     return widget
@@ -272,71 +289,66 @@ def create_data_table8(self) -> QWidget:
 
 def load_data8(self):
     """
-    Загружает из базы данных последние 50 записей из таблицы KeysTable.
-    При наличии текста в поиске выполняется фильтрация по нескольким полям.
+    Загружает из базы данных записи из таблицы KeysTable.
+    При наличии текста в поиске — фильтрация по всем столбцам.
     """
     search_text = self.search_line8.text().strip()
     try:
-        import pymysql
-        connection = pymysql.connect(
-            host="localhost",
-            port=3306,
-            user="newuser",
-            password="852456qaz",
-            database="IB",
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor
         )
-        cursor = connection.cursor()
+        cur = con.cursor()
         if search_text:
-            query = """
+            patt = f"%{search_text}%"
+            cur.execute("""
                 SELECT * FROM KeysTable
-                WHERE CAST(ID AS CHAR) LIKE %s 
-                   OR status LIKE %s 
-                   OR type LIKE %s 
-                   OR cert_serial_le LIKE %s 
-                   OR owner LIKE %s 
-                   OR scope_using LIKE %s 
-                   OR owner_fullname LIKE %s 
-                   OR VIP_Critical LIKE %s
+                WHERE CAST(ID            AS CHAR) LIKE %s
+                   OR status               LIKE %s
+                   OR type                 LIKE %s
+                   OR cert_serial_le       LIKE %s
+                   OR owner                LIKE %s
+                   OR scope_using          LIKE %s
+                   OR owner_fullname       LIKE %s
+                   OR VIP_Critical         LIKE %s
+                   OR CAST(start_date      AS CHAR) LIKE %s
+                   OR CAST(date_end        AS CHAR) LIKE %s
+                   OR additional           LIKE %s
+                   OR number_request       LIKE %s
+                   OR note                 LIKE %s
                 ORDER BY ID DESC
-                LIMIT 50
-            """
-            like_pattern = f"%{search_text}%"
-            cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern,
-                                     like_pattern, like_pattern, like_pattern, like_pattern))
+                LIMIT 500
+            """, (patt,) * 13)
         else:
-            query = "SELECT * FROM KeysTable ORDER BY ID DESC LIMIT 1000"
-            cursor.execute(query)
-        results = cursor.fetchall()
-        connection.close()
+            cur.execute("SELECT * FROM KeysTable ORDER BY ID DESC LIMIT 500")
 
-        self.table_widget8.setRowCount(len(results))
-        for row_idx, row_data in enumerate(results):
-            # Порядок колонок согласно структуре KeysTable:
-            # ID, status, type, cert_serial_le, owner, scope_using, owner_fullname,
-            # VIP_Critical, start_date, date_end, additional, number_request, note
-            columns = [
-                row_data.get("ID"),
-                row_data.get("status"),
-                row_data.get("type"),
-                row_data.get("cert_serial_le"),
-                row_data.get("owner"),
-                row_data.get("scope_using"),
-                row_data.get("owner_fullname"),
-                row_data.get("VIP_Critical"),
-                row_data.get("start_date"),
-                row_data.get("date_end"),
-                row_data.get("additional"),
-                row_data.get("number_request"),
-                row_data.get("note"),
+        rows = cur.fetchall()
+        con.close()
+
+        self.table_widget8.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            cols = [
+                row.get("ID"),
+                row.get("status"),
+                row.get("type"),
+                row.get("cert_serial_le"),
+                row.get("owner"),
+                row.get("scope_using"),
+                row.get("owner_fullname"),
+                row.get("VIP_Critical"),
+                row.get("start_date"),
+                row.get("date_end"),
+                row.get("additional"),
+                row.get("number_request"),
+                row.get("note"),
             ]
-            for col_idx, value in enumerate(columns):
-                item = QTableWidgetItem(str(value) if value is not None else "")
-                self.table_widget8.setItem(row_idx, col_idx, item)
+            for c, val in enumerate(cols):
+                self.table_widget8.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+
+        self.table_widget8.resizeRowsToContents()
+
     except Exception as e:
         print("Ошибка загрузки данных для KeysTable:", e)
-
 
 def save_value8(self):
     status_cb = self.status_cb.currentText()
@@ -384,52 +396,65 @@ def clear_fields(self):
 
 # ────────────────────────────────────────────────────────────────
 def fill_recent_values8(self, limit: int = 5) -> None:
-    """Пополняет ComboBox-ы уникальными значениями из последних записей."""
+    """
+    Заполняет динамические QComboBox-ы уникальными значениями
+    из последних `limit` записей KeysTable, сохраняя порядок по убыванию ID
+    и пропуская пустые поля.
+    """
     try:
-        con = pymysql.connect(host="localhost", port=3306, user="newuser",
-                              password="852456qaz", database="IB",
-                              charset="utf8mb4",
-                              cursorclass=pymysql.cursors.DictCursor)
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser", password="852456qaz",
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
         cur = con.cursor()
         cur.execute("""
-            SELECT type, owner, scope_using,
-                   owner_fullname, additional, status
+            SELECT status, type, owner, scope_using, owner_fullname, additional
             FROM KeysTable
             ORDER BY ID DESC
             LIMIT %s
         """, (limit,))
-        rows = cur.fetchall(); con.close()
+        rows = cur.fetchall()
+        con.close()
 
-        # множества уникальных
-        media   = {r["type"]            for r in rows if r["type"]}
-        ucs     = {r["owner"]           for r in rows if r["owner"]}          # УЦ
-        scopes  = {r["scope_using"]     for r in rows if r["scope_using"]}
-        owners  = {r["owner_fullname"]  for r in rows if r["owner_fullname"]}
-        adds    = {r["additional"]      for r in rows if r["additional"]}
-        stats   = {r["status"]          for r in rows if r["status"]}
+        # Собираем уникальные значения в порядке появления
+        def unique(vals):
+            seen = set()
+            out = []
+            for v in vals:
+                if v and v not in seen:
+                    seen.add(v)
+                    out.append(v)
+            return out
 
-        def _sync(cb: QComboBox, values: set[str]):
-            """Добавить в ComboBox уникальные values, НЕ изменяя текущее поле."""
+        statuses    = unique(r["status"]         for r in rows)
+        media       = unique(r["type"]           for r in rows)
+        ucs         = unique(r["owner"]          for r in rows)
+        scopes      = unique(r["scope_using"]    for r in rows)
+        owners      = unique(r["owner_fullname"] for r in rows)
+        additionals = unique(r["additional"]     for r in rows)
+
+        # Функция синхронизации ComboBox
+        def _sync(cb: QComboBox, values: list[str]):
             if not values:
                 return
-            old = {cb.itemText(i) for i in range(cb.count())}
-            new = [v for v in values if v not in old]
+            existing = [cb.itemText(i) for i in range(cb.count())]
+            new_items = [v for v in values if v not in existing]
+            if not new_items:
+                return
+            had_selection = cb.currentIndex() != -1
+            cb.insertItems(0, new_items)
+            if not had_selection:
+                cb.setCurrentIndex(-1)
+                cb.clearEditText()
 
-            if new:
-                # запомним, был ли выбран элемент
-                had_selection = cb.currentIndex() != -1
-                cb.insertItems(0, new)
-                # если до вставки выбор отсутствовал — вернём состояние «пусто»
-                if not had_selection:
-                    cb.setCurrentIndex(-1)  # ← ключевая строка
-                    cb.clearEditText()  # убираем текст из lineEdit
-
-        _sync(self.nositel_type_cb_key, media)   # «Тип носителя + серийный»
-        _sync(self.issuer_cb_key,       ucs)     # УЦ
-        _sync(self.scope_cb_key,        scopes)
-        _sync(self.owner_cb_key,        owners)
-        _sync(self.additional_cb_key,   adds)
-        _sync(self.status_cb,           stats)   # «Да/Нет»
+        # Подтягиваем в каждый ComboBox
+        _sync(self.status_cb,           statuses)    # «Да/Нет»
+        _sync(self.nositel_type_cb_key, media)       # «Тип носителя + серийный»
+        _sync(self.issuer_cb_key,       ucs)         # «УЦ»
+        _sync(self.scope_cb_key,        scopes)      # «Область/ЭДО»
+        _sync(self.owner_cb_key,        owners)      # «Владелец»
+        _sync(self.additional_cb_key,   additionals) # «Дополнительно»
 
     except Exception as e:
         print("fill_recent_values8 error:", e)
