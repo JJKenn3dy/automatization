@@ -17,7 +17,6 @@ def main() -> None:
     win.resize(1500, 900)
     win.setMinimumSize(1280, 800)
     win.show()
-
     sys.exit(app.exec())
 
 if __name__ == "__main__":
