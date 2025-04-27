@@ -17,7 +17,9 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QLabel, QScrollArea, QFrame, QGraphicsDropShadowEffect
 )
-
+from ui.page7 import (          # берём фабрики/стили из «красивой» 7-й страницы
+    _combo
+)
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_H, BTN_R
 from logic.db import enter_keys              # ← как и раньше
 import pymysql                               # для load_data8
@@ -50,30 +52,6 @@ def _edit(ph: str, font=None) -> QLineEdit:
         QLineEdit::placeholder{{ color:{ACCENT}; }}
     """); return e
 
-def _combo(ph: str, items: list[str], font=None) -> QComboBox:
-    cb = QComboBox(); cb.addItems(items); cb.setCurrentIndex(-1); cb.setEditable(True)
-    cb.lineEdit().setPlaceholderText(ph); cb.setFixedHeight(34)
-    cb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-    if font: cb.setFont(font); cb.lineEdit().setFont(font)
-    cb.setStyleSheet(f"""
-        QComboBox {{
-            background:#fff; border:1px solid #88959e; border-radius:6px;
-            padding:2px 32px 2px 8px; color:{TXT_DARK};
-        }}
-        QComboBox:focus{{ border:1px solid {ACCENT}; }}
-        QComboBox QLineEdit {{ border:none; padding:0; }}
-        QComboBox QLineEdit::placeholder{{ color:{ACCENT}; }}
-        QComboBox::drop-down{{ subcontrol-origin:padding; subcontrol-position:top right;
-                               width:26px; border:none; background:transparent; 
-                               border-left:1px solid #88959e; }}
-        QComboBox::down-arrow{{ image:url(icons/chevron_down.svg); width:10px;height:6px;
-                                margin-right:8px; }}
-        QComboBox::down-arrow:on{{ image:url(icons/chevron_up.svg); }}
-        QComboBox QAbstractItemView {{
-            border:1px solid #88959e; outline:0;
-            selection-background-color:rgba(139,197,64,.18);
-        }}
-    """); return cb
 
 def _btn(text:str, h=BTN_H):
     b = QPushButton(text); b.setCursor(Qt.CursorShape.PointingHandCursor); b.setFixedHeight(h)
@@ -102,7 +80,7 @@ def _date(font=None) -> QDateEdit:
             border-left:1px solid #88959e;
         }}
         QDateEdit::down-arrow{{
-            image:url(icons/chevron_down.svg);
+            image:url(icons/chevron_down.png);
             width:10px; height:6px; margin-right:8px;
         }}
     """)
