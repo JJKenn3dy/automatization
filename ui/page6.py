@@ -5,14 +5,11 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QFrame,
     QLabel, QPushButton, QRadioButton, QScrollArea, QLineEdit, QComboBox,
     QDateEdit, QTableWidget, QHeaderView, QTableWidgetItem, QApplication,
-    QGraphicsDropShadowEffect, QMessageBox
+    QGraphicsDropShadowEffect, QMessageBox, QSizePolicy
 )
 
-from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V
-from ui.page7 import (          # берём фабрики/стили из «красивой» 7-й страницы
-    _edit, _combo, _btn, _hline, _vline,
-    set_edit_error_style, set_combo_error_style
-)
+from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_H, BTN_R
+
 from logic.db import enter_license
 
 import pymysql
@@ -24,7 +21,133 @@ CARD_W = 1300          # ширина «карточки»
 PAD_H  = 20            # внутренние отступы
 PAD_V  = 16
 # ————————————————————————————————————
+def set_edit_error_style(edit: QLineEdit, error: bool) -> None:
+    """
+    Красим QLineEdit:
+      • error == True  → красная рамка
+      • error == False → штатная серая
+    """
+    base = (
+        "background:#fff;"
+        "border-radius:6px;"
+        "padding:4px 8px;"
+        f"color:{TXT_DARK};"
+    )
+    red   = "border:1px solid red;"
+    gray  = "border:1px solid #88959e;"
+    edit.setStyleSheet(base + (red if error else gray))
 
+
+def set_combo_error_style(cb: QComboBox, error: bool) -> None:
+    """
+    То же самое для QComboBox.
+    """
+    base = (
+        "background:#fff;"
+        "border-radius:6px;"
+        "padding:2px 32px 2px 8px;"
+        f"color:{TXT_DARK};"
+    )
+    red   = "border:1px solid red;"
+    gray  = "border:1px solid #88959e;"
+    # сохраняем остальную часть стилей (стрелка, список) из _combo()
+    extra = """
+        QComboBox QAbstractItemView {
+            border:1px solid #88959e;
+            outline:0;
+            selection-background-color:rgba(139,197,64,.18);
+        }
+    """
+    cb.setStyleSheet(base + (red if error else gray) + extra)
+
+
+# ─── глобальные мелочи ────────────────────────────────────────────
+CARD_W = 1300
+PAD_H  = 20
+PAD_V  = 16
+
+# ─── маленькие фабрики для линий, полей и кнопок ─────────────────────
+def _hline(color=ACCENT, h=2):
+    ln = QFrame(); ln.setFixedHeight(h)
+    ln.setStyleSheet(f"background:{color};border:none;")
+    return ln
+
+def _vline(color="#d0d0d0", w=1):
+    ln = QFrame()                 # вертикальная тонкая линия
+    ln.setFixedWidth(w)
+    ln.setFrameShape(QFrame.Shape.VLine)
+    ln.setStyleSheet(f"background:{color};border:none;")
+    return ln
+
+def _edit(ph: str, font=None):
+    e = QLineEdit()
+    e.setPlaceholderText(ph)
+    e.setFixedHeight(34)
+    e.setSizePolicy(QSizePolicy.Policy.Expanding,  # ← добавлено
+                    QSizePolicy.Policy.Fixed)
+    if font:
+        e.setFont(font)
+
+    e.setStyleSheet(f"""
+        QLineEdit {{
+            background:#fff;
+            border:1px solid #88959e;       /* чуть темнее и без «прилипания» к QLabel */
+            border-radius:6px;
+            padding:4px 8px;
+            color:{TXT_DARK};               /* основной цвет текста */
+        }}
+        QLineEdit:focus {{
+            border:1px solid {ACCENT};
+        }}
+        QLineEdit::placeholder {{
+            color:{ACCENT};                 /* зелёный плейс-холдер */
+        }}
+    """)
+    return e
+
+
+# helpers.py ­— финальный вариант фабрики
+def _combo(ph: str, items: list[str], font=None) -> QComboBox:
+    cb = QComboBox(); cb.addItems(items); cb.setCurrentIndex(-1); cb.setEditable(True)
+    cb.lineEdit().setPlaceholderText(ph); cb.setFixedHeight(34)
+    cb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    if font: cb.setFont(font); cb.lineEdit().setFont(font)
+    cb.setStyleSheet(f"""
+        QComboBox {{
+            background:#fff; border:1px solid #88959e; border-radius:6px;
+            padding:2px 32px 2px 8px; color:{TXT_DARK};
+        }}
+        QComboBox:focus{{ border:1px solid {ACCENT}; }}
+        QComboBox QLineEdit {{ border:none; padding:0; }}
+        QComboBox QLineEdit::placeholder{{ color:{ACCENT}; }}
+        QComboBox::drop-down{{ subcontrol-origin:padding; subcontrol-position:top right;
+                               width:26px; border:none; background:transparent; 
+                               border-left:1px solid #88959e; }}
+        QComboBox::down-arrow{{ image:url(icons/chevron_down.png); width:10px;height:6px;
+                                margin-right:8px; }}
+        QComboBox::down-arrow:on{{ image:url(icons/chevron_up.png); }}
+        QComboBox QAbstractItemView {{
+            border:1px solid #88959e; outline:0;
+            selection-background-color:rgba(139,197,64,.18);
+        }}
+    """); return cb
+
+
+def _btn(text:str, h=BTN_H):
+    b = QPushButton(text); b.setCursor(Qt.CursorShape.PointingHandCursor); b.setFixedHeight(h)
+    b.setStyleSheet(
+        f"QPushButton{{background:{BG};color:#fff;border:none;border-radius:{BTN_R}px;}}"
+        f"QPushButton:hover{{background:{ACCENT};}}"
+    )
+    return b
+
+
+def _fix_form_labels(form: QFormLayout, f_norm, f_small, small_set):
+    """Снять рамку + выставить правильный шрифт у всех QLabel в форме."""
+    for i in range(form.rowCount()):
+        lbl = form.itemAt(i, QFormLayout.ItemRole.LabelRole).widget()
+        lbl.setStyleSheet(f"color:{TXT_DARK};border:none;background:transparent;padding:0;margin:0;")
+        lbl.setFont(f_small if lbl.text() in small_set else f_norm)
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   С О З Д А Н И Е   С Т Р А Н И Ц Ы   « Л И Ц Е Н З И И »         ║
@@ -50,7 +173,10 @@ def create_page6(self) -> QWidget:
 
     # ESC → назад
     QShortcut(QKeySequence("Escape"), page).activated.connect(self.go_to_second_page)
-
+    back = _btn("←", 34);
+    back.setFixedWidth(42);
+    back.clicked.connect(self.go_to_second_page)
+    root.addWidget(back, 0, Qt.AlignmentFlag.AlignLeft)
     # ——— прокручиваемая карточка ———
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
@@ -114,6 +240,7 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
     grid.setContentsMargins(12, 12, 12, 12)
     grid.setHorizontalSpacing(20)
     grid.setVerticalSpacing(8)
+
 
     # заголовки секций
     for col, title in enumerate(("Данные заявки", "Информация об установке")):
