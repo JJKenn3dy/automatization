@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QLabel, QScrollArea, QFrame, QGraphicsDropShadowEffect, QDateEdit, QSizePolicy, QPushButton, QComboBox, QLineEdit,
     QTableWidget, QHeaderView, QTableWidgetItem, QStyleOptionViewItem, QStyledItemDelegate
 )
+from PyQt6.uic.Compiler.qtproxies import QtWidgets
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
 from logic.db import enter_CBR
@@ -303,26 +304,62 @@ def load_data9(self):
         print("Ошибка загрузки данных для CBR:", e)
 
 def save_value9(self):
-    request_le = self.request_le.text()
-    nositel_cb = self.nositel_cb.currentText()
-    nositel_serial_cb = self.nositel_serial_cb.currentText()
-    key_number_le = self.key_number_le.text()
-    issuer_cb = self.issuer_cb_cbr.currentText()
-    scope_cb = self.scope_cb_cbr.currentText()
-    owner_cb = self.owner_cb_cbr.currentText()
-    dateedit1 = self.dateedit1.date()
-    dateedit2 = self.dateedit2.date()
-    additional1_le = self.additional1_le.text()
-    additional2_le = self.additional2_le.text()
+    errors = []
 
-    dateedit_str = dateedit1.toPyDate().strftime('%Y-%m-%d')
-    dateedit2_str = dateedit2.toPyDate().strftime('%Y-%m-%d')
+    # Проверка обязательных полей (не включая «Дополнительно»)
+    if not self.request_le.text().strip():
+        errors.append("Поле «Обращение» не должно быть пустым.")
+    if not self.nositel_cb.currentText():
+        errors.append("Поле «Тип носителя» не должно быть пустым.")
+    if not self.nositel_serial_cb.currentText():
+        errors.append("Поле «Носитель (серийный)» не должно быть пустым.")
+    if not self.key_number_le.text().strip():
+        errors.append("Поле «Номер ключа» не должно быть пустым.")
+    if not self.issuer_cb_cbr.currentText():
+        errors.append("Поле «УЦ» не должно быть пустым.")
+    if not self.scope_cb_cbr.currentText():
+        errors.append("Поле «Область/ЭДО» не должно быть пустым.")
+    if not self.owner_cb_cbr.currentText():
+        errors.append("Поле «Владелец» не должно быть пустым.")
 
-    enter_CBR(request_le, nositel_cb, nositel_serial_cb, key_number_le,
-              issuer_cb, scope_cb, owner_cb, dateedit_str, dateedit2_str,
-              additional1_le, additional2_le)
+    if errors:
+        QtWidgets.QMessageBox.critical(
+            self,
+            "Ошибка заполнения",
+            "Обнаружены ошибки:\n\n• " + "\n• ".join(errors)
+        )
+        return
+
+    # Сбор значений для сохранения
+    request_le         = self.request_le.text().strip()
+    nositel_cb         = self.nositel_cb.currentText()
+    nositel_serial_cb  = self.nositel_serial_cb.currentText()
+    key_number_le      = self.key_number_le.text().strip()
+    issuer_cb          = self.issuer_cb_cbr.currentText()
+    scope_cb           = self.scope_cb_cbr.currentText()
+    owner_cb           = self.owner_cb_cbr.currentText()
+    date_start_str     = self.dateedit1.date().toPyDate().strftime('%Y-%m-%d')
+    date_end_str       = self.dateedit2.date().toPyDate().strftime('%Y-%m-%d')
+    additional1_le     = self.additional1_le.text().strip()
+    additional2_le     = self.additional2_le.text().strip()
+
+    # Вызов функции записи в БД
+    enter_CBR(
+        request_le,
+        nositel_cb,
+        nositel_serial_cb,
+        key_number_le,
+        issuer_cb,
+        scope_cb,
+        owner_cb,
+        date_start_str,
+        date_end_str,
+        additional1_le,
+        additional2_le
+    )
+
+    # Сброс полей и обновление данных на странице
     clear_fields(self)
-    # Обновляем таблицу сразу после сохранения
     fill_recent_values9(self)
     load_data9(self)
 

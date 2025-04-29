@@ -372,35 +372,38 @@ def save_values6(self):
     # — проверки (оставлены прежними) —
     errors = []
 
-    if not (self.enter_number.text().isdigit()):
-        errors.append("Поле «Номер» должно содержать цифры")
-    if not self.combobox.currentText().strip():
-        errors.append("Не выбрано ПО СКЗИ")
-    if not self.enter_key.text().strip():
-        errors.append("Поле «Ключ» пустое")
-    if not self.scope.currentText().strip():
-        errors.append("Не заполнена «Область применения»")
-    if len(self.input_fio_user.text()) <= 3:
-        errors.append("ФИО пользователя слишком короткое")
-    if len(self.input_apm.text()) <= 3:
-        errors.append("Имя APM/IP слишком короткое")
-    if len(self.user.text()) <= 3:
-        errors.append("ФИО сотрудника ИБ слишком короткое")
+    if len(self.enter_number.text()) <= 0:
+        errors.append("Поле «Номер» не должно быть пустым.")
+    if len(self.combobox.currentText()) <= 0:
+        errors.append("«ПО СКЗИ» не должно быть пустым.")
+    if len(self.enter_key.text()) <= 0:
+        errors.append("Поле «Ключ» не должно быть пустым.")
+    if len(self.scope.currentText()) <= 0:
+        errors.append("Поле «Область применения» не должно быть пустым")
+    if len(self.input_fio_user.text()) <= 0:
+        errors.append("Поле «ФИО пользователя» не должно быть пустым")
+    if len(self.input_apm.text()) <= 0:
+        errors.append("Поле «Имя APM/IP» не должно быть пустым")
+    if len(self.user.text()) <= 0:
+        errors.append("Поле «ФИО сотрудника ИБ» не должно быть пустым")
     if not (self.rb_issued.isChecked() or self.rb_installed.isChecked() or self.rb_taken.isChecked()):
         errors.append("Не выбран статус")
+
+
+    # статус / отметка
+    if self.rb_issued.isChecked():
+        status, mark = 1, "Выдано"
+    elif self.rb_installed.isChecked():
+        status, mark = 2, "Установлено"
+    else:
+        status, mark = 3, "Изъято"
+        if len(self.input_date.text()) <= 0:
+            errors.append("Поле «Документ / Дата» не должно быть пустым")
 
     if errors:
         QMessageBox.critical(self, "Ошибка заполнения",
                              "Обнаружены ошибки:\n\n• " + "\n• ".join(errors))
         return
-
-    # статус / отметка
-    if self.rb_issued.isChecked():
-        status, mark = 1, ""
-    elif self.rb_installed.isChecked():
-        status, mark = 2, ""
-    else:
-        status, mark = 3, "True"
 
     # запись
     enter_license(

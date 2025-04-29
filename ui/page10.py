@@ -319,38 +319,74 @@ def load_data10(self):
         print("Ошибка загрузки данных для TLS:", e)
 
 def save_value10(self):
-    request_number_le = self.request_number_le.text()
-    dateedit1 = self.dateedit1.date().toPyDate().strftime('%Y-%m-%d')
-    env_cb = self.env_cb.currentText()
-    access_cb = self.access_cb.currentText()
-    issuer_cb = self.issuer_cb.currentText()
-    initiator_cb = self.initiator_cb.currentText()
-    owner_cb = self.owner_cb.currentText()
-    algo_cb = self.algo_cb.currentText()
-    scope_cb = self.scope_cb.currentText()
-    dns_le = self.dns_le.text()
-    resolution_cb = self.resolution_cb.currentText()
-    note_le = self.note_le.text()
+    errors = []
 
+    # Проверка обязательных полей (не включая «Примечание»)
+    if not self.request_number_le.text().strip():
+        errors.append("Поле «Заявка» не должно быть пустым.")
+    if not self.env_cb.currentText():
+        errors.append("Поле «Среда» не должно быть пустым.")
+    if not self.access_cb.currentText():
+        errors.append("Поле «Доступ» не должно быть пустым.")
+    if not self.issuer_cb.currentText():
+        errors.append("Поле «УЦ» не должно быть пустым.")
+    if not self.initiator_cb.currentText():
+        errors.append("Поле «Инициатор» не должно быть пустым.")
+    if not self.owner_cb.currentText():
+        errors.append("Поле «Владелец АС» не должно быть пустым.")
+    if not self.algo_cb.currentText():
+        errors.append("Поле «Алгоритм» не должно быть пустым.")
+    if not self.scope_cb.currentText():
+        errors.append("Поле «Область/ЭДО» не должно быть пустым.")
+    if not self.dns_le.text().strip():
+        errors.append("Поле «DNS» не должно быть пустым.")
+    if not self.resolution_cb.currentText():
+        errors.append("Поле «Резолюция ИБ» не должно быть пустым.")
+
+    if errors:
+        from PyQt6 import QtWidgets
+        QtWidgets.QMessageBox.critical(
+            self,
+            "Ошибка заполнения",
+            "Обнаружены ошибки:\n\n• " + "\n• ".join(errors)
+        )
+        return
+
+    # Сбор значений
+    request_number  = self.request_number_le.text().strip()
+    date_str        = self.dateedit1.date().toPyDate().strftime('%Y-%m-%d')
+    env             = self.env_cb.currentText()
+    access          = self.access_cb.currentText()
+    issuer          = self.issuer_cb.currentText()
+    initiator       = self.initiator_cb.currentText()
+    owner           = self.owner_cb.currentText()
+    algo            = self.algo_cb.currentText()
+    scope           = self.scope_cb.currentText()
+    dns             = self.dns_le.text().strip()
+    resolution      = self.resolution_cb.currentText()
+    note            = self.note_le.text().strip()
+
+    # Сохранение в базу
     enter_TLS(
-        request_number_le,
-        dateedit1,
-        env_cb,
-        access_cb,
-        issuer_cb,
-        initiator_cb,
-        owner_cb,
-        algo_cb,
-        scope_cb,
-        dns_le,
-        resolution_cb,
-        note_le
+        request_number,
+        date_str,
+        env,
+        access,
+        issuer,
+        initiator,
+        owner,
+        algo,
+        scope,
+        dns,
+        resolution,
+        note
     )
-    clear_fields(self)
-    # Обновляем таблицу сразу после сохранения
 
+    # Очистка и обновление
+    clear_fields(self)
     fill_recent_values10(self)
     load_data10(self)
+
 
 def clear_fields(self):
     self.request_number_le.clear()

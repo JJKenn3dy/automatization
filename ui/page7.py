@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit,
     QFrame, QGraphicsDropShadowEffect, QTableWidget, QHeaderView,
-    QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate
+    QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate,
+    QMessageBox
 )
 import pymysql
 from datetime import datetime
@@ -474,6 +475,39 @@ def load_data7(self):
 
 # ─────────────────────────────────────────────────────────────────────
 def save_value7(self):
+    errors = []
+
+    if len(self.skzi_name_cb.currentText()) <= 0:
+        errors.append("Поле «Название СКЗИ» не должно быть пустым.")
+    if len(self.skzi_type.currentText()) <= 0:
+        errors.append("Поле «ТИП СКЗИ» не должно быть пустым.")
+    if len(self.skzi_version_cb.currentText()) <= 0:
+        errors.append("Поле «Версия СКЗИ» не должно быть пустым.")
+    if len(self.reg_number_le.text()) <= 0:
+        errors.append("Поле «Регистрационный Номер» не должно быть пустым")
+    if len(self.location.text()) <= 0:
+        errors.append("Поле «Местонахождение СКЗИ» не должно быть пустым")
+    if len(self.location_TOM.text()) <= 0:
+        errors.append("Поле «ТОМ» не должно быть пустым")
+    if len(self.from_whom_cb.currentText()) <= 0:
+        errors.append("Поле «От кого получены» не должно быть пустым")
+    if len(self.doc_info_skzi.text()) <= 0:
+        errors.append("Поле «Документ» не должно быть пустым")
+    if len(self.contract_skzi.text()) <= 0:
+        errors.append("Поле «Договор» не должно быть пустым")
+    if len(self.fullname_owner.text()) <= 0:
+        errors.append("Поле «Владелец» не должно быть пустым")
+    if len(self.owners.currentText()) <= 0:
+        errors.append("Поле «Владельцы» не должно быть пустым")
+    if len(self.buss_proc.currentText()) <= 0:
+        errors.append("Поле «Бизнес-процессы» не должно быть пустым")
+    if len(self.certnum_le.text()) <= 0:
+        errors.append("Поле «Сертификат» не должно быть пустым")
+
+    if errors:
+        QMessageBox.critical(self, "Ошибка заполнения",
+        "Обнаружены ошибки:\n\n• " + "\n• ".join(errors))
+        return
     enter_sczy(
         self.skzi_name_cb.currentText(), self.skzi_type.currentText(),
         self.skzi_version_cb.currentText(), self.dateedit.date().toString("yyyy-MM-dd"),
@@ -483,7 +517,7 @@ def save_value7(self):
         self.additional_le.text(), self.note_cb.currentText(), self.certnum_le.text(),
         self.dateedit2.date().toString("yyyy-MM-dd")
     )
-    clear_fields(self);
+    clear_fields(self)
     load_data7(self)
     fill_recent_values7(self)
 

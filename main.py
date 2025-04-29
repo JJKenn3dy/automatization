@@ -4,10 +4,10 @@ from packaging import version
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui     import QFontDatabase, QFont
 
-# 1. Версия вашего приложения — обновляйте её перед новым релизом!
+# 1. Версия вашего приложения — обнов перед новым релизом!
 __version__ = "0.0.1"
 
-# 2. Ваш GitHub-репо
+# 2. GitHub-репо
 GITHUB_REPO = "JJKenn3dy/automatization"
 
 def check_for_updates() -> None:

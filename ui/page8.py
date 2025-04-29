@@ -329,25 +329,58 @@ def load_data8(self):
         print("Ошибка загрузки данных для KeysTable:", e)
 
 def save_value8(self):
-    status_cb = self.status_cb.currentText()
-    nositel_type_cb = self.nositel_type_cb_key.currentText()
-    cert_serial_le = self.serial_le_key.text()
-    issuer_cb = self.issuer_cb_key.currentText()
-    scope_cb = self.scope_cb_key.currentText()
-    owner_cb = self.owner_cb_key.currentText()
-    vip_cb = self.vip_cb.currentText()
-    dateedit1 = self.dateedit1_key.date()
-    dateedit2 = self.dateedit2.date()
-    additional_cb = self.additional_cb_key.currentText()
-    request_let = self.request_let_key.text()
-    note_le = self.note_le_key.text()
-    dateedit_str = dateedit1.toPyDate().strftime('%Y-%m-%d')
-    dateedit2_str = dateedit2.toPyDate().strftime('%Y-%m-%d')
+    errors = []
 
-    enter_keys(status_cb, nositel_type_cb, cert_serial_le, issuer_cb, scope_cb, owner_cb, vip_cb,
-               dateedit_str, dateedit2_str, additional_cb, request_let, note_le)
+    # Проверка обязательных полей
+    if not self.status_cb.currentText():
+        errors.append("Поле «Статус» не должно быть пустым.")
+    if not self.nositel_type_cb_key.currentText():
+        errors.append("Поле «Носитель» не должно быть пустым.")
+    if not self.serial_le_key.text().strip():
+        errors.append("Поле «Серийный номер» не должно быть пустым.")
+    if not self.issuer_cb_key.currentText():
+        errors.append("Поле «УЦ» не должно быть пустым.")
+    if not self.scope_cb_key.currentText():
+        errors.append("Поле «Область/ЭДО» не должно быть пустым.")
+    if not self.owner_cb_key.currentText():
+        errors.append("Поле «Владелец» не должно быть пустым.")
+    if not self.vip_cb.currentText():
+        errors.append("Поле «VIP / Critical» не должно быть пустым.")
+    if not self.request_let_key.text().strip():
+        errors.append("Поле «Номер обращения» не должно быть пустым.")
+
+    # Если есть ошибки, показываем диалог и выходим
+    if errors:
+        QtWidgets.QMessageBox.critical(
+            self,
+            "Ошибка заполнения",
+            "Обнаружены ошибки:\n\n• " + "\n• ".join(errors)
+        )
+        return
+
+    # Все поля прошли валидацию — собираем значения и сохраняем
+    status_cb        = self.status_cb.currentText()
+    nositel_type_cb  = self.nositel_type_cb_key.currentText()
+    cert_serial_le   = self.serial_le_key.text().strip()
+    issuer_cb        = self.issuer_cb_key.currentText()
+    scope_cb         = self.scope_cb_key.currentText()
+    owner_cb         = self.owner_cb_key.currentText()
+    vip_cb           = self.vip_cb.currentText()
+    dateedit1        = self.dateedit1_key.date().toPyDate().strftime('%Y-%m-%d')
+    dateedit2        = self.dateedit2.date().toPyDate().strftime('%Y-%m-%d')
+    additional_cb    = self.additional_cb_key.currentText()
+    request_let      = self.request_let_key.text().strip()
+    note_le          = self.note_le_key.text().strip()
+
+    enter_keys(
+        status_cb, nositel_type_cb, cert_serial_le, issuer_cb,
+        scope_cb, owner_cb, vip_cb,
+        dateedit1, dateedit2,
+        additional_cb, request_let, note_le
+    )
+
+    # Очищаем поля и обновляем таблицу
     clear_fields(self)
-    # Обновляем таблицу сразу после сохранения
     load_data8(self)
     fill_recent_values8(self)
 
