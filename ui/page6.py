@@ -26,6 +26,7 @@ PAD_V  = 16
 # ————————————————————————————————————
 
 
+
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   С О З Д А Н И Е   С Т Р А Н И Ц Ы   « Л И Ц Е Н З И И »         ║
 # ╚═══════════════════════════════════════════════════════════════════╝
@@ -41,6 +42,7 @@ def create_page6(self) -> QWidget:
     root = QVBoxLayout(page)
     root.setContentsMargins(16, 16, 16, 16)
     root.setSpacing(8)
+
 
     # ——— заголовок ———
     ttl = QLabel("Лицензии")
@@ -71,6 +73,20 @@ def create_page6(self) -> QWidget:
 
     cbox = QVBoxLayout(card)
     cbox.setContentsMargins(PAD_H, PAD_V // 2, PAD_H, PAD_V // 2)
+
+    # ── кнопка «← Назад» внутри карточки ─────────────────────────
+    hdr = QWidget()
+    hb  = QHBoxLayout(hdr)
+    hb.setContentsMargins(0, 0, 0, 0)
+    hb.setSpacing(0)
+
+    back_btn = _btn("←", 34)
+    back_btn.setFixedWidth(42)
+    back_btn.clicked.connect(self.go_to_second_page)
+    hb.addWidget(back_btn, 0, Qt.AlignmentFlag.AlignLeft)
+    hb.addStretch(1)
+
+    cbox.addWidget(hdr)
 
     # ========== Форма ==========
     form = _build_form(self, fam, sty, f_body)
