@@ -31,7 +31,7 @@ def create_tables():
             """
             CREATE TABLE IF NOT EXISTS License (
                 ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                number INT,
+                number TEXT,
                 name_of_soft VARCHAR(100),
                 number_lic TEXT,
                 scop_using TEXT,

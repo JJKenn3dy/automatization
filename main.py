@@ -63,7 +63,7 @@ def main() -> None:
     from ui.main_window import MainWindow
     win = MainWindow()
     win.resize(1500,900)
-    win.setMinimumSize(1280,800)
+    win.setMinimumSize(1500,900)
     win.show()
     sys.exit(app.exec())
 

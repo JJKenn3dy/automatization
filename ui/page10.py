@@ -191,9 +191,6 @@ def create_page10(self) -> QWidget:
     tbl_frame.setMinimumHeight(200)
     cbox.addWidget(tbl_frame)
 
-    # таймер обновления
-    self.refresh_timer = QTimer(page); self.refresh_timer.setInterval(60000)
-    self.refresh_timer.timeout.connect(lambda: load_data10(self)); self.refresh_timer.start()
 
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value10(self))

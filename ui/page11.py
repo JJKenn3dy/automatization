@@ -103,7 +103,7 @@ def create_page11(self) -> QWidget:
         }}
     """)
     upload.btn.clicked.connect(self.on_toggle)
-    upload.btn.clicked.connect(self.upload_file)
+    upload.btn.clicked.connect(self.upload_files)
     hl.addWidget(upload, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     # Подпись-подсказка

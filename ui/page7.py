@@ -1,6 +1,7 @@
 # ────────────────────────────────────────────────────────────────────
 #  Страница 7  —  СКЗИ  (оформление, как у page6)
 # ────────────────────────────────────────────────────────────────────
+import pandas as pd
 from PyQt6.QtCore   import Qt, QTimer, QDate
 from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
@@ -8,10 +9,13 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit,
     QFrame, QGraphicsDropShadowEffect, QTableWidget, QHeaderView,
     QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate,
-    QMessageBox
+    QMessageBox, QFileDialog
 )
 import pymysql
 from datetime import datetime
+
+from PyQt6.uic.Compiler.qtproxies import QtWidgets
+
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
 from logic.db   import enter_sczy
 
@@ -119,9 +123,9 @@ def _combo(ph: str, items: list[str], font=None) -> QComboBox:
         QComboBox::drop-down{{ subcontrol-origin:padding; subcontrol-position:top right;
                                width:26px; border:none; background:transparent; 
                                border-left:1px solid #88959e; }}
-        QComboBox::down-arrow{{ image:url(icons/chevron_down.png); width:10px;height:6px;
+        QComboBox::down-arrow{{ image:url("ui/icons/chevron_down.png"); width:10px;height:6px;
                                 margin-right:8px; }}
-        QComboBox::down-arrow:on{{ image:url(icons/chevron_up.png); }}
+        QComboBox::down-arrow:on{{ image:url("ui/icons/chevron_up.png"); }}
         QComboBox QAbstractItemView {{
             border:1px solid #88959e; outline:0;
             selection-background-color:rgba(139,197,64,.18);
@@ -332,16 +336,21 @@ def create_page7(self) -> QWidget:
 
     # ── кнопка «Сохранить» ────────────────────────────────────────────
     btn_save = _btn("Сохранить", 30)
-    btn_save.setFixedWidth(CARD_W - PAD_H * 2)
+    btn_save.setFixedWidth(CARD_W - PAD_H )
     btn_save.clicked.connect(lambda: save_value7(self))
     cbox.addSpacing(5); cbox.addWidget(btn_save,0,Qt.AlignmentFlag.AlignHCenter); cbox.addSpacing(5)
-    btn_save.setFixedWidth(CARD_W - PAD_H * 2)
+    btn_save.setFixedWidth(CARD_W - PAD_H )
 
     # ── export-кнопки в ряд ───────────────────────────────────────────
     ex_row = QHBoxLayout(); ex_row.setSpacing(12)
-    ex_row.addWidget(_btn("Экспорт всех данных SCZY", 30))
-    ex_row.addWidget(_btn("Экспорт отфильтрованных SCZY", 30))
-    cbox.addLayout(ex_row);
+    btn_export_all = _btn("Экспорт всех данных СКЗИ", 30)
+    btn_export_filtered = _btn("Экспорт отфильтрованных СКЗИ", 30)
+    ex_row.addWidget(btn_export_all)
+    ex_row.addWidget(btn_export_filtered)
+    cbox.addLayout(ex_row)
+
+    btn_export_all.clicked.connect(self.export_all_sczy)
+    btn_export_filtered.clicked.connect(self.export_filtered_sczy)
 
     # ── таблица + поиск ──────────────────────────────────────────────
     tbl_frame = create_data_table7(self)
@@ -350,9 +359,7 @@ def create_page7(self) -> QWidget:
     tbl_frame.setMinimumHeight(180)
     cbox.addWidget(tbl_frame)
 
-    # таймер обновления
-    self.refresh_timer = QTimer(page); self.refresh_timer.setInterval(60000)
-    self.refresh_timer.timeout.connect(lambda: load_data7(self)); self.refresh_timer.start()
+
 
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value7(self))
@@ -599,3 +606,5 @@ def fill_recent_values7(self, limit: int = 5) -> None:
 
     except Exception as e:
         print("fill_recent_values7 error:", e)
+
+

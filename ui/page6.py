@@ -1,11 +1,11 @@
 # page6_light.py
 from PyQt6.QtCore import Qt, QTimer, QDate
-from PyQt6.QtGui  import QFontDatabase, QShortcut, QKeySequence, QColor
+from PyQt6.QtGui import QFontDatabase, QShortcut, QKeySequence, QColor, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QFrame,
     QLabel, QPushButton, QRadioButton, QScrollArea, QLineEdit, QComboBox,
     QDateEdit, QTableWidget, QHeaderView, QTableWidgetItem, QApplication,
-    QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView
+    QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView, QToolButton
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V
@@ -14,6 +14,7 @@ from ui.page7 import (          # берём фабрики/стили из «к
     set_edit_error_style, set_combo_error_style
 )
 from logic.db import enter_license
+from PyQt6.QtCore import Qt, QTimer, QDate, QEvent
 
 import pymysql
 from datetime import datetime
@@ -24,7 +25,6 @@ CARD_W = 1300          # ширина «карточки»
 PAD_H  = 20            # внутренние отступы
 PAD_V  = 16
 # ————————————————————————————————————
-
 
 
 # ╔═══════════════════════════════════════════════════════════════════╗
@@ -42,7 +42,6 @@ def create_page6(self) -> QWidget:
     root = QVBoxLayout(page)
     root.setContentsMargins(16, 16, 16, 16)
     root.setSpacing(8)
-
 
     # ——— заголовок ———
     ttl = QLabel("Лицензии")
@@ -75,24 +74,22 @@ def create_page6(self) -> QWidget:
     cbox.setContentsMargins(PAD_H, PAD_V // 2, PAD_H, PAD_V // 2)
 
     # ── кнопка «← Назад» внутри карточки ─────────────────────────
+
     hdr = QWidget()
-    hb  = QHBoxLayout(hdr)
+    hb = QHBoxLayout(hdr)
     hb.setContentsMargins(0, 0, 0, 0)
     hb.setSpacing(0)
-
     back_btn = _btn("←", 34)
     back_btn.setFixedWidth(42)
     back_btn.clicked.connect(self.go_to_second_page)
     hb.addWidget(back_btn, 0, Qt.AlignmentFlag.AlignLeft)
     hb.addStretch(1)
-
     cbox.addWidget(hdr)
-
     # ========== Форма ==========
     form = _build_form(self, fam, sty, f_body)
     cbox.addWidget(form)
 
-    # ——— кнопка «Сохранить» ———
+        # ——— кнопка «Сохранить» ———
     btn_save = _btn("Сохранить", 30)
     btn_save.clicked.connect(lambda: save_values6(self))
     cbox.addSpacing(4)
@@ -101,16 +98,12 @@ def create_page6(self) -> QWidget:
     # ——— таблица + поиск ———
     cbox.addWidget(create_data_table(self))
 
-    # таймер авто-обновления
-    self.refresh_timer = QTimer(page)
-    self.refresh_timer.setInterval(60_000)
-    self.refresh_timer.timeout.connect(lambda: load_data(self))
-    self.refresh_timer.start()
+
 
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_values6(self))
 
-    self.refresh_timer.start()
+
 
     # Enter → сохранить
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_values6(self))
@@ -170,12 +163,38 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
     FL.addRow("ФИО пользователя",     self.input_fio_user)
     FL.addRow("Имя APM / IP",         self.input_apm)
 
+
     # —— правый столбец
     self.dateedit = QDateEdit(calendarPopup=True)
     self.dateedit.setDate(QDate.currentDate())
     self.dateedit.setFixedHeight(34); self.dateedit.setFont(f_body)
 
+    self.dateedit.setStyleSheet("""
+            /* ─ Навигационная панель ─────────────────────────── */
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background: #ffffff;              /* белый фон */
+            }
+
+            /* Все кнопки на панели */
+            QCalendarWidget QToolButton {
+                background: transparent;
+                color: #000000;                  /* ЧЁРНЫЙ текст всегда виден */
+                height: 24px;
+                margin: 2px;
+            }
+            QCalendarWidget QToolButton:hover {   /* лёгкая подсветка при наведении */
+                background: rgba(0,0,0,0.06);
+            }
+        """)
     self.user = _edit("Сотрудник ИБ", f_body)
+
+    for btn_name, char in (("qt_calendar_prevmonth", "‹"),
+                           ("qt_calendar_nextmonth", "›")):
+        cal = self.dateedit.calendarWidget()  # то же для dateedit2
+        btn = cal.findChild(QToolButton, btn_name)
+        btn.setText(char)
+        btn.setStyleSheet("color:#000; font:16px 'Gilroy'; background:transparent;")
+        btn.setIcon(QIcon())  # убрать встроенную пиктограмму
 
     # радиокнопки статуса
     radio_box = QWidget(); rb_lay = QVBoxLayout(radio_box); rb_lay.setContentsMargins(0, 0, 0, 0)
@@ -216,6 +235,8 @@ def _build_form(self, fam, sty, f_body) -> QWidget:
     return frame
 
 
+
+
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   Т А Б Л И Ц А   +   П О И С К                                   ║
 # ╚═══════════════════════════════════════════════════════════════════╝
@@ -225,11 +246,43 @@ def create_data_table(self) -> QFrame:
     в которой можно править ячейки двойным кликом.
     """
     frame = QFrame()
-    frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:8px;")
     lay = QVBoxLayout(frame)
     lay.setContentsMargins(12, 12, 12, 12)
+    fam, sty = load_gilroy()
+    f_h2 = QFontDatabase.font(fam, sty, 10)
 
+    """# ——— Инструкция по двойному клику ———
+    attention_png = QLabel(self)
+    pixmap = QPixmap('left_click.png') \
+        .scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio)
+    attention_png.setPixmap(pixmap)
 
+    attention_6 = QLabel(
+        "Редактирование таблицы"
+    )
+    attention_6.setFont(f_h2)
+
+    attention_6_2 = QLabel(
+        "Дублирование полей"
+    )
+    attention_6_2.setFont(f_h2)
+
+    # Собираем картинку и текст в один горизонтальный layout,
+    info_bar = QWidget()
+    info_bar.setStyleSheet("background: transparent; border: none;")
+    hbox_info = QHBoxLayout(info_bar)
+    hbox_info.setContentsMargins(0, 0, 0, 0)
+    hbox_info.setSpacing(8)  # отступ между виджетами
+    attention_6.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    attention_png.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    attention_6_2.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    hbox_info.addWidget(attention_png)  # картинка
+    hbox_info.addWidget(attention_6)  # текст
+    hbox_info.addWidget(attention_6_2)
+
+    lay.addWidget(info_bar)
+"""
+    frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:3px;")
     # Поле поиска
     self.search_line = QLineEdit(placeholderText="Введите текст для поиска…")
     lay.addWidget(self.search_line)
@@ -248,6 +301,7 @@ def create_data_table(self) -> QFrame:
         QHeaderView.ResizeMode.ResizeToContents
     )
 
+
     # Перенос текста без «…»
     self.table_widget.setWordWrap(True)
     self.table_widget.setTextElideMode(Qt.TextElideMode.ElideNone)
@@ -257,6 +311,12 @@ def create_data_table(self) -> QFrame:
             option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
     self.table_widget.setItemDelegate(WrapDelegate(self.table_widget))
 
+    hdr = self.table_widget.horizontalHeader()
+    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+
+    self.table_widget.setColumnWidth(0, 30)  # узкий ID
+    self.table_widget.setColumnWidth(3, 70)  # № лицензии
+
     # 1) Разрешаем редактирование ячеек
     self.table_widget.setEditTriggers(
         QAbstractItemView.EditTrigger.DoubleClicked |
@@ -265,9 +325,8 @@ def create_data_table(self) -> QFrame:
     # 2) Подписываемся на изменение
     self.table_widget.itemChanged.connect(lambda item: on_license_item_changed(self, item))
 
-    self.table_widget.itemDoubleClicked.connect(
-        lambda item: on_row_double_clicked(self, item)
-    )
+    self.table_widget.viewport().installEventFilter(self)
+
 
     lay.addWidget(self.table_widget)
 
@@ -552,3 +611,6 @@ def on_row_double_clicked(self, item: QTableWidgetItem):
     self.extra_lbl.setVisible(self.rb_taken.isChecked())
     self.input_date.setVisible(self.rb_taken.isChecked())
     self.input_date.setText(doc_date)
+
+
+
