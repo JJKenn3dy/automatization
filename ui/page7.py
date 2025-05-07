@@ -20,6 +20,21 @@ from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BT
 from logic.db   import enter_sczy
 
 
+class SkziTableWidget(QTableWidget):
+    """ЛКМ = редактирование, ПКМ = дублирование строки в форму."""
+    def __init__(self, owner, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._owner = owner            # ссылка на объект страницы/окна
+
+    def mouseDoubleClickEvent(self, ev):
+        if ev.button() == Qt.MouseButton.RightButton:
+            item = self.itemAt(ev.pos())
+            if item:
+                # вызываем «свободную» функцию, как раньше делал lambda
+                on_sczy_row_double_clicked(self._owner, item)
+            return                      # отменяем стандартное действие ПКМ
+        super().mouseDoubleClickEvent(ev)   # ЛКМ — по-умолчанию
+
 
 def set_edit_error_style(edit: QLineEdit, error: bool) -> None:
     """
@@ -190,7 +205,8 @@ def create_page7(self) -> QWidget:
     wrap_l.setContentsMargins(0, 0, 0, 0)
 
     card = QFrame()
-    card.setMinimumWidth(CARD_W)
+    card.setSizePolicy(QSizePolicy.Policy.Expanding,
+                       QSizePolicy.Policy.Preferred)
     card.setSizePolicy(
                QSizePolicy.Policy.Expanding,
                QSizePolicy.Policy.Preferred
@@ -382,7 +398,7 @@ def create_data_table7(self) -> QFrame:
     lay.addWidget(self.search_line7)
 
     # Таблица
-    self.table_widget7 = QTableWidget()
+    self.table_widget7 = SkziTableWidget(self)  # (self — это страница/окно)
     headers = [
         "ID","Наименование СКЗИ","Тип СКЗИ","Версия","Дата","Рег. номер",
         "Местонахождение","ТОМ","От кого","Документ","Договор",
@@ -391,15 +407,32 @@ def create_data_table7(self) -> QFrame:
     self.table_widget7.setColumnCount(len(headers))
     self.table_widget7.setHorizontalHeaderLabels(headers)
     self.table_widget7.verticalHeader().setVisible(False)
-    self.table_widget7.setMinimumWidth(CARD_W - PAD_H*2)
+
 
     hdr = self.table_widget7.horizontalHeader()
-    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    hdr.setMinimumSectionSize(60)
+    hdr.setSectionsMovable(True)
+
+    # последняя колонка «резиновая» – заполняет остаток окна
+
+    # последняя колонка «резиновая» – добирает лишнее место,
+    # поэтому ширина всей таблицы всегда равна ширине окна
+    hdr.setStretchLastSection(True)
+
+    # единая команда: все секции работают в режиме Stretch
+
+    # по-желанию: разрешить перетаскивание/переупорядочивание
+    hdr.setSectionsMovable(True)
+    hdr.setMinimumSectionSize(30)
+
+    self.table_widget7.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    lay.addWidget(self.table_widget7, stretch=1)
 
     # Включаем перенос текста и отключаем усечение
     self.table_widget7.setWordWrap(True)
     self.table_widget7.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+
 
     # Делегат для WrapText
     class WrapDelegate(QStyledItemDelegate):
@@ -414,14 +447,38 @@ def create_data_table7(self) -> QFrame:
         QHeaderView.ResizeMode.ResizeToContents
     )
 
-    lay.addWidget(self.table_widget7)
-
+    self.table_widget7.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    lay.addWidget(self.table_widget7, stretch=1)
     # Подключаем загрузку
     self.search_line7.textChanged.connect(lambda: load_data7(self))
     load_data7(self)
 
     return frame
 
+
+def on_sczy_row_double_clicked(self, item: QTableWidgetItem):
+    row = item.row()
+    get = lambda col: self.table_widget7.item(row, col).text() if self.table_widget7.item(row, col) else ""
+
+    # колонка → виджет
+    self.skzi_name_cb.lineEdit().setText(get(1))
+    self.skzi_type.lineEdit().setText(get(2))
+    self.skzi_version_cb.lineEdit().setText(get(3))
+    self.dateedit.setDate(QDate.fromString(get(4), "yyyy-MM-dd"))
+    self.reg_number_le.setText(get(5))
+    self.location.setText(get(6))
+    self.location_TOM.setText(get(7))
+    self.from_whom_cb.lineEdit().setText(get(8))
+    self.doc_info_skzi.setText(get(9))
+    self.contract_skzi.setText(get(10))
+    self.fullname_owner.setText(get(11))
+    self.owners.lineEdit().setText(get(12))
+    self.buss_proc.lineEdit().setText(get(13))
+    self.additional_le.setText(get(14))
+    self.note_cb.lineEdit().setText(get(15))
+    self.certnum_le.setText(get(16))
+    self.dateedit2.setDate(QDate.fromString(get(17), "yyyy-MM-dd"))
 
 # ─────────────────────────────────────────────────────────────────────
 def load_data7(self):

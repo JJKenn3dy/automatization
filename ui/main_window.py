@@ -551,8 +551,7 @@ class MainWindow(QMainWindow):
     def reject(self):
         self.go_to_first_page(self)
 
-
-    def upload_files(self):
+    def upload_file(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Выберите тип импорта")
 
@@ -581,8 +580,667 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(btn_cancel)
         layout.addLayout(btn_layout)
 
-
         # Обработчик нажатия "ОК"
         def on_ok_clicked():
-            self.import_excel(combo.currentText())
-            dialog.accept()
+            index = combo.currentIndex()
+            if index == 0:
+                self.upload_file_license()  # пример: импорт License
+            elif index == 1:
+                self.upload_sczy_file()  # пример: импорт SCZY
+            elif index == 2:
+                self.upload_keys_file()  # пример: импорт Keys
+            elif index == 3:
+                self.upload_cbr_file()  # пример: импорт CBR
+            elif index == 4:
+                self.upload_tls_file()  # пример: импорт TLS
+
+            dialog.accept()  # Закрыть диалог
+
+        btn_ok.clicked.connect(on_ok_clicked)
+        btn_cancel.clicked.connect(dialog.reject)
+
+        dialog.exec()  # Запускаем диалог в модальном режиме
+
+    def upload_file_license(self):
+
+        # Настройка отображения Pandas (необязательно, но удобно для отладки)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+
+        # Словарь, который сопоставляет столбцы из Excel с именами столбцов в БД
+        column_mapping = {
+            '№ Заявки': 'number',
+            'Наименование ПО СКЗИ': 'name_of_soft',
+            '№ лицензии': 'number_lic',
+            'Область применения / наименование ЭДО': 'scop_using',
+            'Ф.И.О. пользователя': 'fullname',
+            'Имя АРМ/IP': 'name_apm',
+            'Дата установки': 'date',
+            'Ф.И.О. сотрудника ИТ': 'fullname_it',
+            'статус': 'status',
+            'Отметка об изъятии/ уничтожении/ вывода из эксплуатации': 'input_mark',
+            'Дата, расписка, номер акта об уничтожении': 'input_date'
+        }
+
+        connection = None
+        try:
+            # 1. Открываем диалоговое окно
+            file_dialog = QFileDialog()
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            file_dialog.setNameFilter("Excel Files (*.xlsx)")
+            if file_dialog.exec():
+                selected_file = file_dialog.selectedFiles()[0]
+                os.rename(selected_file, 'Лицензии.xlsx')
+
+            # 2. Читаем Excel-файл (предполагаем, что первая строка — заголовки)
+            df = pd.read_excel("Лицензии.xlsx", header=0)
+            print(df.columns)
+            print(df.head())  # Покажет первые 5 строк
+
+            # 3. Оставляем только те столбцы, которые есть в column_mapping
+            excel_cols = set(df.columns)
+            mapped_cols = set(column_mapping.keys())
+            cols_to_rename = list(excel_cols.intersection(mapped_cols))
+            df = df[cols_to_rename]
+
+            # Переименовываем столбцы для БД
+            df.rename(columns=column_mapping, inplace=True)
+            print("Столбцы после переименования:", df.columns.tolist())
+
+            # Функция для преобразования даты в формат YYYY-MM-DD (для двух колонок)
+            def convert_date(value):
+                if pd.isna(value):
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                    date_obj = pd.to_datetime(value, format='%d.%m.%Y', errors='coerce')
+                    if pd.isna(date_obj):
+                        return None
+                    return date_obj.strftime('%Y-%m-%d')
+                if isinstance(value, (pd.Timestamp, datetime)):
+                    return value.strftime('%Y-%m-%d')
+                return value
+
+            # Преобразуем столбцы с датами
+            df['date'] = df['date'].apply(convert_date)
+
+            # Преобразование колонки 'status' с учетом радиокнопок
+            def convert_status(value):
+                if pd.isna(value):
+                    return None
+                value = str(value).strip()
+                mapping = {"Выдано": 1, "Установлено": 2, "Изьято": 3}
+                return mapping.get(value, 0)
+
+            df['status'] = df['status'].apply(convert_status)
+
+            for col in df.columns:
+                df[col] = df[col].apply(lambda cell: self.remove_unwanted_whitespace(cell))
+
+            # 4. Подключаемся к БД
+            connection = pymysql.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+
+            with connection.cursor() as cursor:
+                # Формируем INSERT-запрос (без столбца ID, т.к. он автоинкремент)
+                db_columns = [
+                    'number',
+                    'name_of_soft',
+                    'number_lic',
+                    'scop_using',
+                    'fullname',
+                    'name_apm',
+                    'date',
+                    'fullname_it',
+                    'status',
+                    'input_mark',
+                    'input_date'
+                ]
+                cols_str = ", ".join(f"`{col}`" for col in db_columns)
+                placeholders = ", ".join(["%s"] * len(db_columns))
+                insert_query = f"INSERT INTO License ({cols_str}) VALUES ({placeholders})"
+
+                # Вставляем данные, заменяя NaN на None
+                for index, row in df.iterrows():
+                    values = [None if pd.isna(row[col]) else row[col] for col in db_columns]
+                    cursor.execute(insert_query, values)
+
+                connection.commit()
+                print("Все данные успешно добавлены в базу данных.")
+
+
+        finally:
+            if connection:
+                connection.close()
+
+    def upload_sczy_file(self):
+        # Настройка отображения Pandas (необязательно, но удобно для отладки)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+
+        # Словарь сопоставления столбцов из Excel с именами столбцов в таблице SCZY
+        column_mapping = {
+            'Наименование СКЗИ': 'name_of_SCZY',
+            'Тип ПО/ПАК': 'sczy_type',
+            'Версия СКЗИ': 'number_SCZY',
+            'Дата получения': 'date',
+            'Регистрационный (серийный) номер': 'number_license',
+            'Местонахождение': 'location',
+            'От кого получены': 'owner',
+            'Дата и номер документа, сопроводительного письма': 'date_and_number',
+            'Договор': 'contract',
+            'ФИО владельца, бизнес процесс в рамках которого используется': 'fullname_owner',
+            'Владельцы': 'owners',
+            'Бизнес процессы': 'buss_proc',
+            'Примечание': 'additional',
+            'Дополнительно': 'note',
+            'Сертификат': 'number_certificate',
+            'Срок': 'date_expired'
+        }
+
+        connection = None
+        try:
+            # 1. Открываем диалоговое окно для выбора Excel-файла
+            file_dialog = QFileDialog()
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            file_dialog.setNameFilter("Excel Files (*.xlsx)")
+            if file_dialog.exec():
+                selected_file = file_dialog.selectedFiles()[0]
+                # Переименовываем выбранный файл для удобства (можно изменить логику при необходимости)
+                os.rename(selected_file, 'СКЗИ.xlsx')
+
+            # 2. Читаем Excel-файл, лист с данными для СКЗИ (название листа – 'СКЗИ')
+            df = pd.read_excel("СКЗИ.xlsx", header=0)
+            print(df.columns)
+            print(df.head())
+
+            # 3. Оставляем только те столбцы, которые есть в column_mapping и переименовываем их
+            excel_cols = set(df.columns)
+            mapped_cols = set(column_mapping.keys())
+            cols_to_rename = list(excel_cols.intersection(mapped_cols))
+            df = df[cols_to_rename]
+            df.rename(columns=column_mapping, inplace=True)
+            print("Столбцы после переименования:", df.columns.tolist())
+
+            # Функция для преобразования даты в формат YYYY-MM-DD (для двух колонок)
+            def convert_date(value):
+                if pd.isna(value):
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                    date_obj = pd.to_datetime(value, format='%d.%m.%Y', errors='coerce')
+                    if pd.isna(date_obj):
+                        return None
+                    return date_obj.strftime('%Y-%m-%d')
+                if isinstance(value, (pd.Timestamp, datetime)):
+                    return value.strftime('%Y-%m-%d')
+                return value
+
+            # Преобразуем столбцы с датами
+            df['date'] = df['date'].apply(convert_date)
+            df['date_expired'] = df['date_expired'].apply(convert_date)
+
+            # Удаляем лишние пробелы/символы из всех ячеек (функция должна быть определена в классе)
+            for col in df.columns:
+                df[col] = df[col].apply(lambda cell: self.remove_unwanted_whitespace(cell))
+
+            # 4. Подключаемся к базе данных
+            connection = pymysql.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+
+            with connection.cursor() as cursor:
+                # Список столбцов в таблице SCZY (без автоинкрементного ID)
+                db_columns = [
+                    'name_of_SCZY',
+                    'sczy_type',
+                    'number_SCZY',
+                    'date',
+                    'number_license',
+                    'location',
+                    'owner',
+                    'date_and_number',
+                    'contract',
+                    'fullname_owner',
+                    'owners',
+                    'buss_proc',
+                    'additional',
+                    'note',
+                    'number_certificate',
+                    'date_expired'
+                ]
+                for col in db_columns:
+                    if col not in df.columns:
+                        df[col] = None
+                cols_str = ", ".join(f"{col}" for col in db_columns)
+                placeholders = ", ".join(["%s"] * len(db_columns))
+                insert_query = f"INSERT INTO SCZY ({cols_str}) VALUES ({placeholders})"
+
+                # Вставляем данные по строкам, заменяя NaN на None
+                for index, row in df.iterrows():
+                    values = [None if pd.isna(row[col]) else row[col] for col in db_columns]
+                    cursor.execute(insert_query, values)
+
+                connection.commit()
+                print("Все данные успешно добавлены в таблицу SCZY.")
+
+        finally:
+            if connection:
+                connection.close()
+
+    def upload_keys_file(self):
+        # Настройка отображения Pandas (необязательно, но удобно для отладки)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+
+        # Словарь сопоставления столбцов из Excel с именами столбцов в таблице SCZY
+        column_mapping = {
+            'Статус да/нет': 'status',
+            'Носитель (Серийный номер)': 'type',
+            'Серийный номер сертификата': 'cert_serial_le',
+            'Область действия / наименование ЭДО': 'scope_using',
+            'ФИО владельца': 'owner',
+            'VIP/ Critical': 'VIP_Critical',
+            'Срок начала действия': 'start_date',
+            'Срок окончания действия': 'date_end',
+            'Дополнительно': 'additional',
+            'Заявка/номер обращения': 'number_request',
+            'Примечание': 'note'
+        }
+
+        connection = None
+        try:
+            # 1. Открываем диалоговое окно для выбора Excel-файла
+            file_dialog = QFileDialog()
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            file_dialog.setNameFilter("Excel Files (*.xlsx)")
+            if file_dialog.exec():
+                selected_file = file_dialog.selectedFiles()[0]
+                # Переименовываем выбранный файл для удобства (можно изменить логику при необходимости)
+                os.rename(selected_file, 'УКЭП.xlsx')
+
+            # 2. Читаем Excel-файл, лист с данными для СКЗИ (название листа – 'СКЗИ')
+            df = pd.read_excel("УКЭП.xlsx", header=0)
+            print(df.columns)
+            print(df.head())
+
+            # 3. Оставляем только те столбцы, которые есть в column_mapping и переименовываем их
+            excel_cols = set(df.columns)
+            mapped_cols = set(column_mapping.keys())
+            cols_to_rename = list(excel_cols.intersection(mapped_cols))
+            df = df[cols_to_rename]
+            df.rename(columns=column_mapping, inplace=True)
+            print("Столбцы после переименования:", df.columns.tolist())
+
+            # Функция для преобразования даты в формат YYYY-MM-DD (для двух колонок)
+            def convert_date(value):
+                if pd.isna(value):
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                    date_obj = pd.to_datetime(value, format='%d.%m.%Y', errors='coerce')
+                    if pd.isna(date_obj):
+                        return None
+                    return date_obj.strftime('%Y-%m-%d')
+                if isinstance(value, (pd.Timestamp, datetime)):
+                    return value.strftime('%Y-%m-%d')
+                return value
+
+            # Преобразуем столбцы с датами
+            df['start_date'] = df['start_date'].apply(convert_date)
+            df['date_end'] = df['date_end'].apply(convert_date)
+
+            # Удаляем лишние пробелы/символы из всех ячеек (функция должна быть определена в классе)
+            for col in df.columns:
+                df[col] = df[col].apply(lambda cell: self.remove_unwanted_whitespace(cell))
+
+            # 4. Подключаемся к базе данных
+            connection = pymysql.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+
+            with connection.cursor() as cursor:
+                # Список столбцов в таблице SCZY (без автоинкрементного ID)
+                db_columns = [
+                    'status',
+                    'type',
+                    'cert_serial_le',
+                    'scope_using',
+                    'owner',
+                    'VIP_Critical',
+                    'start_date',
+                    'date_end',
+                    'additional',
+                    'number_request',
+                    'note'
+                ]
+                for col in db_columns:
+                    if col not in df.columns:
+                        df[col] = None
+                cols_str = ", ".join(f"{col}" for col in db_columns)
+                placeholders = ", ".join(["%s"] * len(db_columns))
+                insert_query = f"INSERT INTO KeysTable ({cols_str}) VALUES ({placeholders})"
+
+                # Вставляем данные по строкам, заменяя NaN на None
+                for index, row in df.iterrows():
+                    values = [None if pd.isna(row[col]) else row[col] for col in db_columns]
+                    cursor.execute(insert_query, values)
+
+                connection.commit()
+                print("Все данные успешно добавлены в таблицу Keys.")
+        finally:
+            if connection:
+                connection.close()
+
+    def upload_cbr_file(self):
+        """
+        Загрузка данных из Excel-файла в таблицу CBR.
+        """
+        # Настройка отображения pandas для отладки
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+
+        # Сопоставление столбцов Excel с колонками таблицы CBR
+        column_mapping = {
+            'Носитель (Серийный номер)': 'number_serial',
+            'Номер ключа': 'number_key',
+            'Выдавший УЦ': 'owner',
+            'Область действия / наименование ЭДО': 'scope_using',
+            'ФИО владельца': 'fullname_owner',
+            'Срок начала действия': 'date_start',
+            'Срок окончания действия': 'date_end',
+            'Осталось дней': 'status',
+            'Дополнительно': 'additional',
+            'Примечание': 'note',
+            'Заявка/номер обращения': 'number'
+        }
+
+        connection = None
+        try:
+            # НЕ создаём новый QApplication, если уже существует главный экземпляр.
+            # Если диалог нужно вызвать модально, можно использовать статический метод:
+            selected_file, _ = QFileDialog.getOpenFileName(
+                self, "Выберите Excel-файл", "", "Excel Files (*.xlsx)"
+            )
+            if not selected_file:
+                print("Файл не выбран. Завершаем работу функции.")
+                return
+
+            # Переименовываем выбранный файл (убедитесь, что он не занят)
+            os.rename(selected_file, 'CBR.xlsx')
+
+            # Читаем Excel-файл
+            df = pd.read_excel("CBR.xlsx", header=0)
+            print("Исходные столбцы Excel:", df.columns.tolist())
+            print(df.head())
+
+            # Оставляем только нужные столбцы и переименовываем их
+            excel_cols = set(df.columns)
+            mapped_cols = set(column_mapping.keys())
+            cols_to_rename = list(excel_cols.intersection(mapped_cols))
+            df = df[cols_to_rename]
+            df.rename(columns=column_mapping, inplace=True)
+            print("Столбцы после переименования:", df.columns.tolist())
+
+            def convert_date(value):
+                if pd.isna(value):
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                    date_obj = pd.to_datetime(value, format='%d.%m.%Y', errors='coerce')
+                    if pd.isna(date_obj):
+                        date_obj = pd.to_datetime(value, errors='coerce')
+                        if pd.isna(date_obj):
+                            return None
+                    return date_obj.strftime('%Y-%m-%d')
+                if isinstance(value, (pd.Timestamp, datetime)):
+                    return value.strftime('%Y-%m-%d')
+                return value
+
+            for date_col in ['date_start', 'date_end']:
+                if date_col in df.columns:
+                    df[date_col] = df[date_col].apply(convert_date)
+
+            for col in df.columns:
+                df[col] = df[col].apply(lambda cell: self.remove_unwanted_whitespace(cell))
+
+            # Подключаемся к базе данных (MariaDB)
+            connection = pymysql.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+
+            with connection.cursor() as cursor:
+                db_columns = [
+                    'number',
+                    'status',
+                    'number_serial',
+                    'number_key',
+                    'owner',
+                    'scope_using',
+                    'fullname_owner',
+                    'date_start',
+                    'date_end',
+                    'additional',
+                    'note'
+                ]
+                for col in db_columns:
+                    if col not in df.columns:
+                        df[col] = None
+
+                cols_str = ", ".join(f"`{col}`" for col in db_columns)
+                placeholders = ", ".join(["%s"] * len(db_columns))
+                insert_query = f"INSERT INTO CBR ({cols_str}) VALUES ({placeholders})"
+
+                for index, row in df.iterrows():
+                    values = [None if pd.isna(row[col]) else row[col] for col in db_columns]
+                    cursor.execute(insert_query, values)
+
+                connection.commit()
+                print("Все данные успешно добавлены в таблицу CBR.")
+
+        finally:
+            if connection:
+                connection.close()
+
+    def upload_tls_file(self):
+        """
+        Загрузка данных из Excel-файла в таблицу TLS.
+        Предполагается, что таблица TLS имеет столбцы:
+          ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          number TEXT,         -- Номер заявки
+          date DATE,           -- Дата согласования заявки
+          environment TEXT,    -- Среда (тест/продуктив) - при желании кодируется числом
+          access TEXT,         -- Доступ (внешний/внутренний) - при желании кодируется числом
+          issuer TEXT,         -- Выдавший УЦ (если в Excel есть соответствующий столбец)
+          initiator TEXT,      -- Инициатор
+          owner TEXT,          -- Владелец АС
+          algorithm TEXT,      -- Алгоритм (RSA/ГОСТ) - при желании кодируется числом
+          scope TEXT,          -- Область действия / наименование ЭДО
+          DNS TEXT,            -- DNS
+          resolution TEXT,     -- резолюция ИБ (уточнение/согласовано/отказано) - при желании кодируется числом
+          note TEXT            -- Примечания
+        """
+
+        # Настройки Pandas для отладки (необязательно)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+
+        # Сопоставление столбцов Excel -> поля таблицы TLS
+        # В примере берём столбцы, упомянутые в исходных данных.
+        # Если в Excel есть "Выдавший УЦ" (issuer) – добавьте в словарь при необходимости.
+        column_mapping = {
+            "Дата согласования заявки": "date",
+            "номер заявки": "number",
+            "Среда": "environment",
+            "Доступ": "access",
+            "Инициатор": "initiator",
+            "Владелец АС": "owner",
+            "тип сертификата": "algorithm",
+            "Сервис": "DNS",
+            "примечание (описание)": "note",
+            "резолюция ИБ": "resolution"
+        }
+
+        # Пример кодирования строковых значений в числа (по желанию)
+        # Если не нужно, можно убрать эти функции и использовать значения как есть.
+        def convert_environment(value):
+            # "тест" -> 1, "продуктив" -> 2, иначе None или оставляем текст
+            mapping = {"тест": "1", "продуктив": "2"}
+            return mapping.get(value.lower(), value) if isinstance(value, str) else value
+
+        def convert_access(value):
+            mapping = {"внешний": "1", "внутренний": "2"}
+            return mapping.get(value.lower(), value) if isinstance(value, str) else value
+
+        def convert_algorithm(value):
+            mapping = {"rsa": "1", "гост": "2"}
+            return mapping.get(value.lower(), value) if isinstance(value, str) else value
+
+        def convert_resolution(value):
+            # "уточнение" -> 1, "согласовано" -> 2, "отказано" -> 3
+            mapping = {"уточнение": "1", "согласовано": "2", "отказано": "3"}
+            return mapping.get(value.lower(), value) if isinstance(value, str) else value
+
+        connection = None
+        try:
+            # Вызываем стандартный диалог выбора файла
+            selected_file, _ = QFileDialog.getOpenFileName(
+                self, "Выберите Excel-файл для TLS", "", "Excel Files (*.xlsx)"
+            )
+            if not selected_file:
+                print("Файл не выбран. Завершаем работу функции.")
+                return
+
+            # Переименовываем выбранный файл (убедитесь, что файл не занят)
+            os.rename(selected_file, "TLS.xlsx")
+
+            # Читаем Excel-файл (первая строка — заголовки)
+            df = pd.read_excel("TLS.xlsx", header=0)
+            print("Исходные столбцы Excel:", df.columns.tolist())
+            print(df.head())  # Для отладки
+
+            # Оставляем только нужные столбцы и переименовываем их
+            excel_cols = set(df.columns)
+            mapped_cols = set(column_mapping.keys())
+            cols_to_rename = list(excel_cols.intersection(mapped_cols))
+            df = df[cols_to_rename]
+            df.rename(columns=column_mapping, inplace=True)
+            print("Столбцы после переименования:", df.columns.tolist())
+
+            # Функция для преобразования даты в формат YYYY-MM-DD
+            def convert_date(value):
+                if pd.isna(value):
+                    return None
+                if isinstance(value, str):
+                    value = value.strip()
+                    date_obj = pd.to_datetime(value, format='%d.%m.%Y', errors='coerce')
+                    if pd.isna(date_obj):
+                        date_obj = pd.to_datetime(value, errors='coerce')
+                        if pd.isna(date_obj):
+                            return None
+                    return date_obj.strftime('%Y-%m-%d')
+                if isinstance(value, (pd.Timestamp, datetime)):
+                    return value.strftime('%Y-%m-%d')
+                return value
+
+            # Преобразуем столбец "date" (если он есть)
+            if "date" in df.columns:
+                df["date"] = df["date"].apply(convert_date)
+
+            # Удаляем лишние пробелы/невидимые символы из всех ячеек
+            for col in df.columns:
+                df[col] = df[col].apply(lambda cell: self.remove_unwanted_whitespace(cell))
+
+            # Дополнительно кодируем значения (среда, доступ, алгоритм, резолюция) при необходимости
+            if "environment" in df.columns:
+                df["environment"] = df["environment"].apply(convert_environment)
+            if "access" in df.columns:
+                df["access"] = df["access"].apply(convert_access)
+            if "algorithm" in df.columns:
+                df["algorithm"] = df["algorithm"].apply(convert_algorithm)
+            if "resolution" in df.columns:
+                df["resolution"] = df["resolution"].apply(convert_resolution)
+
+            # Подключаемся к базе данных (MariaDB)
+            connection = pymysql.connect(
+                host="localhost",
+                port=3306,
+                user="newuser",
+                password="852456qaz",
+                database="IB",
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+
+            with connection.cursor() as cursor:
+                # Столбцы в таблице TLS (без автоинкрементного ID)
+                db_columns = [
+                    "number",  # Номер заявки
+                    "date",  # Дата согласования заявки
+                    "environment",  # Среда (тест/продуктив)
+                    "access",  # Доступ (внешний/внутренний)
+                    "issuer",  # Выдавший УЦ (если в Excel есть соответствующий столбец)
+                    "initiator",  # Инициатор
+                    "owner",  # Владелец АС
+                    "algorithm",  # Алгоритм (RSA/ГОСТ)
+                    "scope",  # Область действия / наименование ЭДО
+                    "DNS",  # DNS
+                    "resolution",  # резолюция ИБ
+                    "note"  # Примечания
+                ]
+
+                # Если в датафрейме отсутствуют некоторые столбцы, добавляем их со значением None
+                for col in db_columns:
+                    if col not in df.columns:
+                        df[col] = None
+
+                cols_str = ", ".join(f"`{col}`" for col in db_columns)
+                placeholders = ", ".join(["%s"] * len(db_columns))
+                insert_query = f"INSERT INTO TLS ({cols_str}) VALUES ({placeholders})"
+
+                # Вставляем данные, заменяя NaN на None
+                for _, row in df.iterrows():
+                    values = [None if pd.isna(row[col]) else row[col] for col in db_columns]
+                    cursor.execute(insert_query, values)
+
+                connection.commit()
+                print("Все данные успешно добавлены в таблицу TLS.")
+
+        finally:
+            if connection:
+                connection.close()

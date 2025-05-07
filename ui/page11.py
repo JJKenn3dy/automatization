@@ -3,10 +3,10 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QSizePolicy, QGraphicsDropShadowEffect, QSpacerItem
+    QSizePolicy, QGraphicsDropShadowEffect, QSpacerItem, QPushButton
 )
-from PyQt6.QtGui import QColor, QFontDatabase, QFont, QShortcut, QKeySequence
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFontDatabase, QFont, QShortcut, QKeySequence, QEnterEvent
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QEvent
 
 # всё готовое берём из page1
 from ui.page1 import (
@@ -16,8 +16,27 @@ from ui.page1 import (
     BTN_H, BTN_R, SZ_TITLE, SZ_BTN
 )
 
+class HoverButton(QPushButton):
+    """Обычный QPushButton с лёгкой анимацией прозрачности."""
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setObjectName("animBtn")
 
-# ────────────────────────────────────────────────────────────────────────
+        self._anim = QPropertyAnimation(self, b"windowOpacity", self)
+        self._anim.setDuration(120)
+        self._anim.setStartValue(1.0)
+        self._anim.setEndValue(0.75)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+    def enterEvent(self, ev):
+        self._anim.setDirection(QPropertyAnimation.Direction.Backward)
+        self._anim.start()
+        super().enterEvent(ev)
+
+    def leaveEvent(self, ev):
+        self._anim.setDirection(QPropertyAnimation.Direction.Forward)
+        self._anim.start()
+        super().leaveEvent(ev)
 def create_page11(self) -> QWidget:
     from ui.page7 import _btn  # Импортируем _btn, чтобы стиль был единым
 
@@ -83,8 +102,9 @@ def create_page11(self) -> QWidget:
     hl.addWidget(hr)
 
     # Кнопка импорта
-    upload = HoverButton("Выбрать файл и импортировать")
+    upload = HoverButton("Выбрать файл и импортировать", page)
     upload.setFixedSize(340, BTN_H)
+
     upload.setStyleSheet(f"""
         QPushButton#animBtn {{
             background:{BTN_BG};
@@ -102,8 +122,11 @@ def create_page11(self) -> QWidget:
             color:#d0d0d0;
         }}
     """)
-    upload.btn.clicked.connect(self.on_toggle)
-    upload.btn.clicked.connect(self.upload_files)
+
+    upload.clicked.connect(self.upload_file)
+    upload.clicked.connect(self.on_toggle)
+    upload.clicked.connect(lambda _=False: print("[DEBUG] clicked"))
+
     hl.addWidget(upload, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     # Подпись-подсказка

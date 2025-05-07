@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QFrame,
     QLabel, QPushButton, QRadioButton, QScrollArea, QLineEdit, QComboBox,
     QDateEdit, QTableWidget, QHeaderView, QTableWidgetItem, QApplication,
-    QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView, QToolButton
+    QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView, QToolButton,
+    QSizePolicy
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V
@@ -285,18 +286,20 @@ def create_data_table(self) -> QFrame:
     frame.setStyleSheet("border:1px solid #d0d0d0;border-radius:3px;")
     # Поле поиска
     self.search_line = QLineEdit(placeholderText="Введите текст для поиска…")
-    lay.addWidget(self.search_line)
-
+    lay.addWidget(self.search_line, stretch=0)
     # Таблица
     self.table_widget = QTableWidget()
+    self.table_widget.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                    QSizePolicy.Policy.Expanding)
     self.table_widget.setColumnCount(12)
     self.table_widget.setHorizontalHeaderLabels([
         "ID","Номер","ПО","№ лицензии","Область",
-        "ФИО","APM","Дата","ФИО IT","Статус","Отметка","Дата док-та"
+        "ФИО","APM","Дата","ФИО IT","Статус","Отметка","Документ/дата"
     ])
     self.table_widget.verticalHeader().setVisible(False)
     hdr = self.table_widget.horizontalHeader()
-    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    # разрешаем перетаскивать и менять порядок
+    hdr.setSectionsMovable(True)
     self.table_widget.verticalHeader().setSectionResizeMode(
         QHeaderView.ResizeMode.ResizeToContents
     )
@@ -312,10 +315,28 @@ def create_data_table(self) -> QFrame:
     self.table_widget.setItemDelegate(WrapDelegate(self.table_widget))
 
     hdr = self.table_widget.horizontalHeader()
-    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+    hdr.setSectionsMovable(True)
+    # последняя колонка будет «резиновой» и заполняет всё лишнее место
+    hdr.setStretchLastSection(True)
+    # задаём минимальный размер секции для всех колонок
+    hdr.setMinimumSectionSize(30)
 
-    self.table_widget.setColumnWidth(0, 30)  # узкий ID
-    self.table_widget.setColumnWidth(3, 70)  # № лицензии
+    # Стартовые режимы и ширины колонок (px)
+
+    # минимальный размер для ЛЮБОГО столбца
+    hdr.setMinimumSectionSize(30)
+
+
+    # минимальный «хинт» для любой колонки
+    hdr.setMinimumSectionSize(30)
+
+    # стартовые ширины (px) для пропорций
+    initial_widths = [15, 100, 100, 100, 150, 180, 100, 100, 180, 75, 100, 120]
+    for col, w in enumerate(initial_widths):
+        hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+        hdr.resizeSection(col, w)
+
+
 
     # 1) Разрешаем редактирование ячеек
     self.table_widget.setEditTriggers(
@@ -328,7 +349,7 @@ def create_data_table(self) -> QFrame:
     self.table_widget.viewport().installEventFilter(self)
 
 
-    lay.addWidget(self.table_widget)
+    lay.addWidget(self.table_widget, stretch=1)
 
     # Поиск
     self.search_line.textChanged.connect(lambda: load_data(self))
@@ -494,6 +515,7 @@ def save_values6(self):
     load_data(self)
     fill_recent_values6(self)
     QMessageBox.information(self, "Успех", "Данные успешно сохранены")
+
 
 
 # ╔═══════════════════════════════════════════════════════════════════╗
