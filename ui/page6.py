@@ -1,4 +1,5 @@
 # page6_light.py
+import pandas as pd
 from PyQt6.QtCore import Qt, QTimer, QDate
 from PyQt6.QtGui import QFontDatabase, QShortcut, QKeySequence, QColor, QPixmap, QIcon
 from PyQt6.QtWidgets import (
@@ -6,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QRadioButton, QScrollArea, QLineEdit, QComboBox,
     QDateEdit, QTableWidget, QHeaderView, QTableWidgetItem, QApplication,
     QGraphicsDropShadowEffect, QMessageBox, QStyledItemDelegate, QStyleOptionViewItem, QAbstractItemView, QToolButton,
-    QSizePolicy
+    QSizePolicy, QFileDialog
 )
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V
@@ -90,12 +91,68 @@ def create_page6(self) -> QWidget:
     form = _build_form(self, fam, sty, f_body)
     cbox.addWidget(form)
 
-        # ——— кнопка «Сохранить» ———
-    btn_save = _btn("Сохранить", 30)
-    btn_save.clicked.connect(lambda: save_values6(self))
-    cbox.addSpacing(4)
-    cbox.addWidget(btn_save, alignment=Qt.AlignmentFlag.AlignHCenter)
 
+    # ── 1. строка: «Сохранить» + подсказки ────────────────────────────
+    save_row = QHBoxLayout()
+    save_row.setSpacing(12)
+
+    btn_save = _btn("Сохранить", 30)
+    btn_save.setFixedWidth(150)
+
+    def _line(icon, text) -> QHBoxLayout:
+        h = QHBoxLayout();
+        h.setSpacing(6)
+        ico = QLabel()
+        ico.setPixmap(QPixmap(icon).scaled(
+            28, 30, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation))
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"color:{TXT_DARK}; font-size:13px;")
+        h.addWidget(ico);
+        h.addWidget(lbl)
+        return h
+
+    info_box = QVBoxLayout();
+    info_box.setSpacing(2)
+    info_box.addLayout(_line("ui/icons/left_click.png",
+                             "Редактирование строки таблицы"))
+    info_box.addLayout(_line("ui/icons/right_click.png",
+                             "Дублирование данных строки в поля"))
+
+    info_wrap = QWidget();
+    info_wrap.setLayout(info_box)
+    # --- «фиктивный» блок той-же ширины, что info_wrap ---------------
+    dummy = QWidget()
+    dummy.setFixedWidth(info_wrap.sizeHint().width())  # ключевая строка
+    save_row.addLayout(info_box)  # подсказка прижата к правому краю
+
+    # --- собираем строку --------------------------------------------
+    save_row.addStretch(1)
+    save_row.addWidget(dummy)  # резервирует место слева
+    save_row.addWidget(btn_save)  # теперь кнопка честно в центре
+    save_row.addStretch(1)
+    save_row.addWidget(info_wrap)  # подсказка прижата к правому краю
+    cbox.addLayout(save_row)
+    btn_save.clicked.connect(lambda: save_values6(self))
+
+    # ── 2. строка: две экспорт-кнопки строго по центру ────────────────
+    export_row = QHBoxLayout();
+    export_row.setSpacing(12)
+
+    btn_export_all = _btn("Экспорт всех лицензий", 30)
+    btn_export_filtered = _btn("Экспорт отфильтрованных лицензий", 30)
+    for b in (btn_export_all, btn_export_filtered):
+        b.setFixedWidth(350)
+
+    export_row.addStretch(1)
+    export_row.addWidget(btn_export_all)
+    export_row.addWidget(btn_export_filtered)
+    export_row.addStretch(1)
+
+    cbox.addLayout(export_row)
+
+    btn_export_filtered.clicked.connect(lambda: export_filtered_license(self))
+    btn_export_all.clicked.connect(lambda: export_all_license(self))
     # ——— таблица + поиск ———
     cbox.addWidget(create_data_table(self))
 
@@ -105,12 +162,88 @@ def create_page6(self) -> QWidget:
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_values6(self))
 
 
-
-    # Enter → сохранить
-    QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_values6(self))
-
     fill_recent_values6(self)  # ← добавили
     return page
+
+
+# ╔═══════════════════════════════════════════════════════════════════╗
+# ║   Э К С П О Р Т   Д А Н Н Ы Х   В   Excel                         ║
+# ╚═══════════════════════════════════════════════════════════════════╝
+def _license_rows_to_df(rows: list[dict]) -> pd.DataFrame:
+    """Преобразуем выборку MySQL → pandas.DataFrame с «человеческими» заголовками."""
+    cols = {
+        "ID":             "ID",
+        "number":         "Номер заявки",
+        "name_of_soft":   "Наименование ПО СКЗИ",
+        "number_lic":     "Ключ",
+        "scop_using":     "Область применения",
+        "fullname":       "ФИО пользователя",
+        "name_apm":       "Имя APM / IP",
+        "date":           "Дата",
+        "fullname_it":    "ФИО ИБ-сотрудника",
+        "status":         "Статус (код)",
+        "input_mark":     "Отметка",
+        "input_date":     "Документ / дата",
+    }
+    return pd.DataFrame(rows).rename(columns=cols)[cols.values()]
+
+def _save_df_to_excel(df: pd.DataFrame, parent) -> None:
+    """Спрашиваем файл и сохраняем DataFrame; ошибки показываем в QMessageBox."""
+    if df.empty:
+        QMessageBox.warning(parent, "Экспорт",
+                            "Нет данных для экспорта.")
+        return
+    path, _ = QFileDialog.getSaveFileName(
+        parent, "Сохранить файл Excel",
+        "licenses.xlsx",
+        "Excel Files (*.xlsx)"
+    )
+    if not path:
+        return
+    try:
+        df.to_excel(path, index=False)
+        QMessageBox.information(parent, "Экспорт",
+                                f"Успешно сохранено:\n{path}")
+    except Exception as e:
+        QMessageBox.critical(parent, "Ошибка экспорта", str(e))
+
+def export_all_license(self):
+    """Выгружаем *все* записи таблицы License."""
+    try:
+        con = pymysql.connect(
+            host="localhost", port=3306, user="newuser",
+            password="852456qaz", database="IB",
+            charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor
+        )
+        with con.cursor() as cur:
+            cur.execute("SELECT * FROM License ORDER BY ID")
+            rows = cur.fetchall()
+        con.close()
+    except Exception as e:
+        QMessageBox.critical(self, "Ошибка экспорта", str(e))
+        return
+    _save_df_to_excel(_license_rows_to_df(rows), self)
+
+def export_filtered_license(self):
+    """
+    Выгрузка только тех строк, которые попали в текущую
+    таблицу после фильтра поиска.
+    """
+    # Собираем видимое содержимое QTableWidget
+    rows = []
+    for r in range(self.table_widget.rowCount()):
+        row_dict = {}
+        for c, key in enumerate((
+            "ID","number","name_of_soft","number_lic","scop_using",
+            "fullname","name_apm","date","fullname_it",
+            "status","input_mark","input_date"
+        )):
+            item = self.table_widget.item(r, c)
+            row_dict[key] = item.text() if item else ""
+        rows.append(row_dict)
+
+    _save_df_to_excel(_license_rows_to_df(rows), self)
+
 
 
 # ╔═══════════════════════════════════════════════════════════════════╗

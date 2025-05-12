@@ -79,7 +79,7 @@ def create_tables():
                 start_date DATE,
                 date_end DATE,
                 additional TEXT,
-                number_request INT,
+                number_request TEXT,
                 note TEXT
             )
             """,

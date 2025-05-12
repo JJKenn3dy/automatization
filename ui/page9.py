@@ -211,29 +211,50 @@ def create_data_table9(self) -> QWidget:
     ]
     self.table_widget9.setColumnCount(len(headers))
     self.table_widget9.setHorizontalHeaderLabels(headers)
+    self.table_widget9.verticalHeader().setVisible(False)
 
-    # Перенос текста и убираем «...»
+
+    hdr = self.table_widget9.horizontalHeader()
+    hdr.setSectionsMovable(True)
+
+    # последняя колонка «резиновая» – заполняет остаток окна
+
+    # последняя колонка «резиновая» – добирает лишнее место,
+    # поэтому ширина всей таблицы всегда равна ширине окна
+    hdr.setStretchLastSection(True)
+
+    # единая команда: все секции работают в режиме Stretch
+
+    # по-желанию: разрешить перетаскивание/переупорядочивание
+    hdr.setSectionsMovable(True)
+    hdr.setMinimumSectionSize(30)
+
+    self.table_widget9.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    layout.addWidget(self.table_widget9, stretch=1)
+
+    # Включаем перенос текста и отключаем усечение
     self.table_widget9.setWordWrap(True)
     self.table_widget9.setTextElideMode(Qt.TextElideMode.ElideNone)
 
+
+
     # Делегат для WrapText
     class WrapDelegate(QStyledItemDelegate):
-        def initStyleOption(self, option, index):
+        def initStyleOption(self, option: QStyleOptionViewItem, index):
             super().initStyleOption(option, index)
             option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
 
     self.table_widget9.setItemDelegate(WrapDelegate(self.table_widget9))
 
-    # Растягиваем колонки и авто-подгонка высоты строк
-    hdr = self.table_widget9.horizontalHeader()
-    hdr.setStretchLastSection(True)
-    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    # Автоподгонка высоты строк
     self.table_widget9.verticalHeader().setSectionResizeMode(
         QHeaderView.ResizeMode.ResizeToContents
     )
 
-    layout.addWidget(self.table_widget9)
-
+    self.table_widget9.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    layout.addWidget(self.table_widget9, stretch=1)
     # Подключаем загрузку
     self.search_line9.textChanged.connect(lambda: load_data9(self))
     load_data9(self)

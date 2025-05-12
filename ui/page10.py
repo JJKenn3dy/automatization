@@ -216,37 +216,55 @@ def create_data_table10(self) -> QWidget:
     # Таблица для отображения данных TLS
     self.table_widget10 = QTableWidget()
     headers = [
-        "ID", "Заявка", "Дата", "Среда", "Доступ",
+        "Заявка", "Дата", "Среда", "Доступ",
         "УЦ", "Инициатор", "Владелец АС", "Алгоритм", "Область/ЭДО",
         "DNS", "Резолюция", "Примечание"
     ]
     self.table_widget10.setColumnCount(len(headers))
     self.table_widget10.setHorizontalHeaderLabels(headers)
+    self.table_widget10.verticalHeader().setVisible(False)
 
-    # Перенос текста и отключаем усечение
+    hdr = self.table_widget10.horizontalHeader()
+    hdr.setSectionsMovable(True)
+
+    # последняя колонка «резиновая» – заполняет остаток окна
+
+    # последняя колонка «резиновая» – добирает лишнее место,
+    # поэтому ширина всей таблицы всегда равна ширине окна
+    hdr.setStretchLastSection(True)
+
+    # единая команда: все секции работают в режиме Stretch
+
+    # по-желанию: разрешить перетаскивание/переупорядочивание
+    hdr.setSectionsMovable(True)
+    hdr.setMinimumSectionSize(30)
+
+    self.table_widget10.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    layout.addWidget(self.table_widget10, stretch=1)
+
+    # Включаем перенос текста и отключаем усечение
     self.table_widget10.setWordWrap(True)
     self.table_widget10.setTextElideMode(Qt.TextElideMode.ElideNone)
 
     # Делегат для WrapText
     class WrapDelegate(QStyledItemDelegate):
-        def initStyleOption(self, option, index):
+        def initStyleOption(self, option: QStyleOptionViewItem, index):
             super().initStyleOption(option, index)
             option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
 
     self.table_widget10.setItemDelegate(WrapDelegate(self.table_widget10))
 
-    # Растягиваем колонки и авто-подгоняем высоту строк
-    hdr = self.table_widget10.horizontalHeader()
-    hdr.setStretchLastSection(True)
-    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    # Автоподгонка высоты строк
     self.table_widget10.verticalHeader().setSectionResizeMode(
         QHeaderView.ResizeMode.ResizeToContents
     )
 
-    layout.addWidget(self.table_widget10)
-
-    # Подключаем загрузку и первоначальную отрисовку
-    self.search_line10.textChanged.connect(lambda: load_data10(self))
+    self.table_widget10.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+    layout.addWidget(self.table_widget10, stretch=1)
+    # Подключаем загрузку
+    self.search_line7.textChanged.connect(lambda: load_data10(self))
     load_data10(self)
 
     return widget
@@ -293,7 +311,6 @@ def load_data10(self):
         self.table_widget10.setRowCount(len(rows))
         for r, row in enumerate(rows):
             cols = [
-                row.get("ID"),
                 row.get("number"),
                 row.get("date"),
                 row.get("environment"),

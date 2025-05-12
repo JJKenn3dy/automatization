@@ -352,17 +352,20 @@ def create_page7(self) -> QWidget:
 
     # ── кнопка «Сохранить» ────────────────────────────────────────────
     btn_save = _btn("Сохранить", 30)
-    btn_save.setFixedWidth(CARD_W - PAD_H )
     btn_save.clicked.connect(lambda: save_value7(self))
     cbox.addSpacing(5); cbox.addWidget(btn_save,0,Qt.AlignmentFlag.AlignHCenter); cbox.addSpacing(5)
-    btn_save.setFixedWidth(CARD_W - PAD_H )
+    btn_save.setFixedWidth(150)
 
     # ── export-кнопки в ряд ───────────────────────────────────────────
-    ex_row = QHBoxLayout(); ex_row.setSpacing(12)
+    ex_row = QHBoxLayout()
+    ex_row.setSpacing(12)
     btn_export_all = _btn("Экспорт всех данных СКЗИ", 30)
+    btn_export_all.setFixedWidth(350)
     btn_export_filtered = _btn("Экспорт отфильтрованных СКЗИ", 30)
-    ex_row.addWidget(btn_export_all)
-    ex_row.addWidget(btn_export_filtered)
+    btn_export_filtered.setFixedWidth(350)
+
+    ex_row.addWidget(btn_export_all, alignment=Qt.AlignmentFlag.AlignRight)
+    ex_row.addWidget(btn_export_filtered, alignment=Qt.AlignmentFlag.AlignLeft)
     cbox.addLayout(ex_row)
 
     btn_export_all.clicked.connect(self.export_all_sczy)
