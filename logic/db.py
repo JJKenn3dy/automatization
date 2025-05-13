@@ -257,12 +257,17 @@ def enter_sczy(name, sczy_type, version, date_, reg_num,
             location, location_TOM_text, owner, date_and_number, contract,
             fullname_owner, owners, buss_proc, additional, note,
             number_certificate, date_expired)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
-    with _conn() as c:
-        c.cursor().execute(q, (name, sczy_type, version, date_, reg_num,
-                               location, location_tom, from_whom, doc_info,
-                               contract, owner_fio, owners, buss_proc,
-                               additional, note, cert_num, date_extra))
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""  # ← 17 знаков “?”
+    try:
+        with _conn() as c:
+            c.cursor().execute(q, (
+                name, sczy_type, version, date_, reg_num,
+                location, location_tom, from_whom, doc_info,
+                contract, owner_fio, owners, buss_proc,
+                additional, note, cert_num, date_extra
+            ))
+    except mariadb.Error as e:
+        print("insert SCZY error:", e)
 def enter_keys(
     status_cb,
     nositel_type_cb,

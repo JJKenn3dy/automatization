@@ -1,5 +1,7 @@
 # ui/page10.py
 from datetime import datetime
+
+from PyQt6 import QtWidgets
 from PyQt6.QtCore   import Qt, QDate, QTimer
 from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
@@ -15,6 +17,48 @@ import pymysql               # для load_data10
 from ui.page7 import (          # берём фабрики/стили из «красивой» 7-й страницы
    _combo
 )
+
+TLS_FIELDS = {
+    0: "number",
+    1: "date",
+    2: "environment",
+    3: "access",
+    4: "issuer",
+    5: "initiator",
+    6: "owner",
+    7: "algorithm",
+    8: "scope",
+    9: "DNS",
+    10: "resolution",
+    11: "note",
+}
+
+def _flash_row10(tbl: QTableWidget, row: int, msec: int = 400):
+    tbl.blockSignals(True)
+    for c in range(tbl.columnCount()):
+        it = tbl.item(row, c)
+        if it:
+            it.setBackground(QColor(139, 197, 64, 40))
+    tbl.blockSignals(False)
+
+    def _clr():
+        tbl.blockSignals(True)
+        for c in range(tbl.columnCount()):
+            it = tbl.item(row, c)
+            if it:
+                it.setBackground(QColor(0, 0, 0, 0))
+        tbl.blockSignals(False)
+    QTimer.singleShot(msec, _clr)
+
+
+def _rollback_tls(item: QTableWidgetItem, original: str, err) -> None:
+    if original is None:
+        original = ""
+    tbl = item.tableWidget()
+    tbl.blockSignals(True)
+    item.setText(original)                    # визуальный откат
+    tbl.blockSignals(False)
+    QtWidgets.QMessageBox.critical(tbl, "Ошибка сохранения", str(err))
 
 # ───── маленькие фабрики ──────────────────────────────────────────────
 def _hline(color=ACCENT, h=2):
@@ -75,6 +119,46 @@ def _date(font=None) -> QDateEdit:
     """)
     return d
 
+
+def on_tls_item_changed(self, item: QTableWidgetItem):
+    # ID в таблице TLS не выводим → все столбцы редактируемы
+    col       = item.column()
+    original  = item.data(Qt.ItemDataRole.UserRole)
+    new_val   = item.text().strip()
+
+    # ── простейшая валидация дат (столбец 1) ───────────────────────
+    try:
+        if col == 1:  # «Дата»
+            # допускаем «dd.MM.yyyy» или «yyyy-MM-dd»
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                qd = QDate.fromString(new_val, fmt)
+                if qd.isValid():
+                    new_val = qd.toString("yyyy-MM-dd")
+                    break
+            else:
+                raise ValueError("Неверный формат даты")
+    except Exception as e:
+        _rollback_tls(item, original, e)
+        return
+
+    field = TLS_FIELDS[col]
+    rec_no = self.table_widget10.item(item.row(), 0).text()   # ключ – «Заявка»
+
+    try:
+        with pymysql.connect(host="localhost", port=3306,
+                             user="newuser", password="852456qaz",
+                             database="IB", charset="utf8mb4",
+                             cursorclass=pymysql.cursors.DictCursor) as con:
+            cur = con.cursor()
+            cur.execute(f"UPDATE TLS SET `{field}`=%s WHERE number=%s",
+                        (new_val, rec_no))
+            con.commit()
+
+        item.setData(Qt.ItemDataRole.UserRole, new_val)       # фиксируем
+        _flash_row10(self.table_widget10, item.row())
+
+    except Exception as e:
+        _rollback_tls(item, original, e)
 
 # ───── главная функция страницы ───────────────────────────────────────
 def create_page10(self) -> QWidget:
@@ -199,138 +283,111 @@ def create_page10(self) -> QWidget:
 
     return page
 
+# ─── ПЕРЕПИСАННАЯ функция таблицы ───────────────────────────────────
 def create_data_table10(self) -> QWidget:
     widget = QWidget()
-    layout = QVBoxLayout(widget)
-    layout.setSpacing(5)
+    lay = QVBoxLayout(widget)
+    lay.setSpacing(6)
 
-    # Поисковая строка
-    search_layout = QHBoxLayout()
-    search_label = QLabel("Поиск:")
-    self.search_line10 = QLineEdit()
-    self.search_line10.setPlaceholderText("Введите текст для поиска...")
-    search_layout.addWidget(search_label)
-    search_layout.addWidget(self.search_line10)
-    layout.addLayout(search_layout)
+    # ── строка поиска ──────────────────────────────────────────────
+    row = QHBoxLayout()
+    row.addWidget(QLabel("Поиск:"))
+    self.search_line10 = QLineEdit(placeholderText="Введите текст для поиска…")
+    row.addWidget(self.search_line10)
+    lay.addLayout(row)
 
-    # Таблица для отображения данных TLS
+    # ── таблица ────────────────────────────────────────────────────
     self.table_widget10 = QTableWidget()
     headers = [
-        "Заявка", "Дата", "Среда", "Доступ",
-        "УЦ", "Инициатор", "Владелец АС", "Алгоритм", "Область/ЭДО",
-        "DNS", "Резолюция", "Примечание"
+        "Заявка", "Дата", "Среда", "Доступ", "УЦ", "Инициатор",
+        "Владелец АС", "Алгоритм", "Область/ЭДО", "DNS",
+        "Резолюция", "Примечание"
     ]
     self.table_widget10.setColumnCount(len(headers))
     self.table_widget10.setHorizontalHeaderLabels(headers)
     self.table_widget10.verticalHeader().setVisible(False)
 
-    hdr = self.table_widget10.horizontalHeader()
-    hdr.setSectionsMovable(True)
-
-    # последняя колонка «резиновая» – заполняет остаток окна
-
-    # последняя колонка «резиновая» – добирает лишнее место,
-    # поэтому ширина всей таблицы всегда равна ширине окна
-    hdr.setStretchLastSection(True)
-
-    # единая команда: все секции работают в режиме Stretch
-
-    # по-желанию: разрешить перетаскивание/переупорядочивание
-    hdr.setSectionsMovable(True)
-    hdr.setMinimumSectionSize(30)
-
-    self.table_widget10.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                     QSizePolicy.Policy.Expanding)
-    layout.addWidget(self.table_widget10, stretch=1)
-
-    # Включаем перенос текста и отключаем усечение
+    # перенос текста без «…»
     self.table_widget10.setWordWrap(True)
     self.table_widget10.setTextElideMode(Qt.TextElideMode.ElideNone)
 
-    # Делегат для WrapText
-    class WrapDelegate(QStyledItemDelegate):
-        def initStyleOption(self, option: QStyleOptionViewItem, index):
-            super().initStyleOption(option, index)
-            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+    class _Wrap(QStyledItemDelegate):
+        def initStyleOption(self, opt, idx):
+            super().initStyleOption(opt, idx)
+            opt.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+    self.table_widget10.setItemDelegate(_Wrap(self.table_widget10))
 
-    self.table_widget10.setItemDelegate(WrapDelegate(self.table_widget10))
-
-    # Автоподгонка высоты строк
+    hdr = self.table_widget10.horizontalHeader()
+    hdr.setSectionsMovable(True)
+    hdr.setStretchLastSection(True)
+    hdr.setMinimumSectionSize(30)
     self.table_widget10.verticalHeader().setSectionResizeMode(
-        QHeaderView.ResizeMode.ResizeToContents
-    )
+        QHeaderView.ResizeMode.ResizeToContents)
 
-    self.table_widget10.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                     QSizePolicy.Policy.Expanding)
-    layout.addWidget(self.table_widget10, stretch=1)
-    # Подключаем загрузку
-    self.search_line7.textChanged.connect(lambda: load_data10(self))
-    load_data10(self)
+    lay.addWidget(self.table_widget10, stretch=1)
+
+    # ── первая «тихая» загрузка (без itemChanged) ─────────────────
+    load_data10(self)                         # сигналы ещё не подключены
+
+    # ── подключаем поисковую строку и редактирование ──────────────
+    self.table_widget10.itemChanged.connect(
+        lambda it: on_tls_item_changed(self, it))
+    self.search_line10.textChanged.connect(lambda: load_data10(self))
 
     return widget
 
-def load_data10(self):
-    """
-    Загружает из базы данных записи из таблицы TLS.
-    При наличии текста в поиске — фильтрация по всем столбцам.
-    """
-    search_text = self.search_line10.text().strip()
-    try:
-        import pymysql
-        con = pymysql.connect(
-            host="localhost", port=3306, user="newuser", password="852456qaz",
-            database="IB", charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor
-        )
+def load_data10(self) -> None:
+    """Загружает записи TLS в таблицу self.table_widget10."""
+    search = self.search_line10.text().strip()
+
+    # ── запрос к БД ──────────────────────────────────────────────
+    with pymysql.connect(host="localhost", port=3306,
+                         user="newuser", password="852456qaz",
+                         database="IB", charset="utf8mb4",
+                         cursorclass=pymysql.cursors.DictCursor) as con:
         cur = con.cursor()
-        if search_text:
-            patt = f"%{search_text}%"
+        if search:
+            patt = f"%{search}%"
             cur.execute("""
                 SELECT * FROM TLS
-                WHERE CAST(ID          AS CHAR) LIKE %s
-                   OR number           LIKE %s
-                   OR date             LIKE %s
-                   OR environment      LIKE %s
-                   OR access           LIKE %s
-                   OR issuer           LIKE %s
-                   OR initiator        LIKE %s
-                   OR owner            LIKE %s
-                   OR algorithm        LIKE %s
-                   OR scope            LIKE %s
-                   OR DNS              LIKE %s
-                   OR resolution       LIKE %s
-                   OR note             LIKE %s
-                ORDER BY ID DESC
-                LIMIT 50
-            """, (patt,) * 13)
+                WHERE CONCAT_WS('|', ID, number, date, environment, access,
+                                issuer, initiator, owner, algorithm, scope,
+                                DNS, resolution, note) LIKE %s
+                ORDER BY ID DESC LIMIT 500
+            """, (patt,))
         else:
             cur.execute("SELECT * FROM TLS ORDER BY ID DESC LIMIT 500")
-
         rows = cur.fetchall()
-        con.close()
 
-        self.table_widget10.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            cols = [
-                row.get("number"),
-                row.get("date"),
-                row.get("environment"),
-                row.get("access"),
-                row.get("issuer"),
-                row.get("initiator"),
-                row.get("owner"),
-                row.get("algorithm"),
-                row.get("scope"),
-                row.get("DNS"),
-                row.get("resolution"),
-                row.get("note"),
-            ]
-            for c, val in enumerate(cols):
-                self.table_widget10.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+    # ── тихо заполняем таблицу ──────────────────────────────────
+    self.table_widget10.blockSignals(True)
 
-        self.table_widget10.resizeRowsToContents()
+    self.table_widget10.setRowCount(len(rows))
+    for r, row in enumerate(rows):
+        cols = [
+            row.get("number"),
+            row.get("date"),          # в БД это DATE → str() даст 'YYYY-MM-DD'
+            row.get("environment"),
+            row.get("access"),
+            row.get("issuer"),
+            row.get("initiator"),
+            row.get("owner"),
+            row.get("algorithm"),
+            row.get("scope"),
+            row.get("DNS"),
+            row.get("resolution"),
+            row.get("note"),
+        ]
+        for c, val in enumerate(cols):
+            it = QTableWidgetItem("" if val is None else str(val))
+            # запоминаем «оригинал» для возможного отката
+            it.setData(Qt.ItemDataRole.UserRole, it.text())
+            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft |
+                                 Qt.AlignmentFlag.AlignVCenter)
+            self.table_widget10.setItem(r, c, it)
 
-    except Exception as e:
-        print("Ошибка загрузки данных для TLS:", e)
+    self.table_widget10.resizeRowsToContents()
+    self.table_widget10.blockSignals(False)
 
 def save_value10(self):
     errors = []

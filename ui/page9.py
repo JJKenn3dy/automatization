@@ -14,6 +14,22 @@ import pymysql                         # для load_data9
 from ui.page7 import (          # берём фабрики/стили из «красивой» 7-й страницы
     _combo
 )
+
+CBR_FIELDS = {
+     0: "ID",
+     1: "number",          # заявка
+     2: "status",
+     3: "number_serial",
+     4: "number_key",
+     5: "owner",           # УЦ
+     6: "scope_using",
+     7: "fullname_owner",
+     8: "date_start",
+     9: "date_end",
+    10: "additional",
+    11: "note",
+}
+
 # ───── маленькие фабрики ──────────────────────────────────────────────
 def _hline(color=ACCENT, h=2):
     ln = QFrame(); ln.setFixedHeight(h)
@@ -189,21 +205,26 @@ def create_page9(self) -> QWidget:
     return page
 
 def create_data_table9(self) -> QWidget:
+    """
+    Поисковая строка + таблица CBR.
+    1) создаём виджеты;
+    2) полностью настраиваем таблицу;
+    3) «тихо» загружаем данные (сигналы ещё не подключены);
+    4) подключаем itemChanged и поиск.
+    """
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    layout.setSpacing(5)
+    layout.setSpacing(6)
 
-    # Поисковая строка (без изменений)
-    search_layout = QHBoxLayout()
-    search_label = QLabel("Поиск:")
-    self.search_line9 = QLineEdit()
-    self.search_line9.setPlaceholderText("Введите текст для поиска...")
-    search_layout.addWidget(search_label)
-    search_layout.addWidget(self.search_line9)
-    layout.addLayout(search_layout)
+    # ── строка поиска ──────────────────────────────────────────────
+    search_row = QHBoxLayout()
+    search_row.addWidget(QLabel("Поиск:"))
+    self.search_line9 = QLineEdit(placeholderText="Введите текст для поиска…")
+    search_row.addWidget(self.search_line9)
+    layout.addLayout(search_row)
 
-    # Таблица
-    self.table_widget9 = QTableWidget()
+    # ── таблица ────────────────────────────────────────────────────
+    self.table_widget9 = QTableWidget()                      # ① СОЗДАЁМ
     headers = [
         "ID", "Заявка", "Статус", "Серийный номер", "Номер ключа",
         "УЦ", "Область/ЭДО", "Владелец", "Дата начала", "Дата окончания",
@@ -212,115 +233,157 @@ def create_data_table9(self) -> QWidget:
     self.table_widget9.setColumnCount(len(headers))
     self.table_widget9.setHorizontalHeaderLabels(headers)
     self.table_widget9.verticalHeader().setVisible(False)
-
-
-    hdr = self.table_widget9.horizontalHeader()
-    hdr.setSectionsMovable(True)
-
-    # последняя колонка «резиновая» – заполняет остаток окна
-
-    # последняя колонка «резиновая» – добирает лишнее место,
-    # поэтому ширина всей таблицы всегда равна ширине окна
-    hdr.setStretchLastSection(True)
-
-    # единая команда: все секции работают в режиме Stretch
-
-    # по-желанию: разрешить перетаскивание/переупорядочивание
-    hdr.setSectionsMovable(True)
-    hdr.setMinimumSectionSize(30)
-
     self.table_widget9.setSizePolicy(QSizePolicy.Policy.Expanding,
                                      QSizePolicy.Policy.Expanding)
-    layout.addWidget(self.table_widget9, stretch=1)
 
-    # Включаем перенос текста и отключаем усечение
+    # перенос текста без «…»
     self.table_widget9.setWordWrap(True)
     self.table_widget9.setTextElideMode(Qt.TextElideMode.ElideNone)
 
+    class _Wrap(QStyledItemDelegate):                         # делегат wrap
+        def initStyleOption(self, opt, idx):
+            super().initStyleOption(opt, idx)
+            opt.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
+    self.table_widget9.setItemDelegate(_Wrap(self.table_widget9))
 
-
-    # Делегат для WrapText
-    class WrapDelegate(QStyledItemDelegate):
-        def initStyleOption(self, option: QStyleOptionViewItem, index):
-            super().initStyleOption(option, index)
-            option.features |= QStyleOptionViewItem.ViewItemFeature.WrapText
-
-    self.table_widget9.setItemDelegate(WrapDelegate(self.table_widget9))
-
-    # Автоподгонка высоты строк
+    # заголовок
+    hdr = self.table_widget9.horizontalHeader()
+    hdr.setSectionsMovable(True)
+    hdr.setStretchLastSection(True)
+    hdr.setMinimumSectionSize(30)
     self.table_widget9.verticalHeader().setSectionResizeMode(
-        QHeaderView.ResizeMode.ResizeToContents
-    )
+        QHeaderView.ResizeMode.ResizeToContents)
 
-    self.table_widget9.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                     QSizePolicy.Policy.Expanding)
     layout.addWidget(self.table_widget9, stretch=1)
-    # Подключаем загрузку
+
+    # ── «тихая» первая загрузка ─────────────────────────────────── ②
+    load_data9(self)                                          # сигнала ещё НЕТ
+
+    # ── подключаем обработчики ──────────────────────────────────── ③
+    self.table_widget9.itemChanged.connect(
+        lambda it: on_cbr_item_changed(self, it))
     self.search_line9.textChanged.connect(lambda: load_data9(self))
-    load_data9(self)
 
     return widget
 
+
 def load_data9(self):
-    """
-    Загружает из базы данных записи из таблицы CBR.
-    При наличии текста в поиске — фильтрация по всем столбцам.
-    """
     search_text = self.search_line9.text().strip()
+
     try:
         con = pymysql.connect(
             host="localhost", port=3306, user="newuser", password="852456qaz",
-            database="IB", charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor
+            database="IB", charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
         )
         cur = con.cursor()
+
         if search_text:
             patt = f"%{search_text}%"
             cur.execute("""
                 SELECT * FROM CBR
-                WHERE CAST(ID             AS CHAR) LIKE %s
-                   OR number              LIKE %s
-                   OR status              LIKE %s
-                   OR number_serial       LIKE %s
-                   OR number_key          LIKE %s
-                   OR owner               LIKE %s
-                   OR scope_using         LIKE %s
-                   OR fullname_owner      LIKE %s
-                   OR CAST(date_start     AS CHAR) LIKE %s
-                   OR CAST(date_end       AS CHAR) LIKE %s
-                   OR additional          LIKE %s
-                   OR note                LIKE %s
-                ORDER BY ID DESC
-                LIMIT 500
-            """, (patt,) * 12)
+                WHERE CONCAT_WS('|',
+                        ID, number, status, number_serial, number_key,
+                        owner, scope_using, fullname_owner,
+                        date_start, date_end, additional, note
+                ) LIKE %s
+                ORDER BY ID DESC LIMIT 500
+            """, (patt,))
         else:
             cur.execute("SELECT * FROM CBR ORDER BY ID DESC LIMIT 500")
 
         rows = cur.fetchall()
+
+    finally:
         con.close()
 
-        self.table_widget9.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            cols = [
-                row.get("ID"),
-                row.get("number"),
-                row.get("status"),
-                row.get("number_serial"),
-                row.get("number_key"),
-                row.get("owner"),
-                row.get("scope_using"),
-                row.get("fullname_owner"),
-                row.get("date_start"),
-                row.get("date_end"),
-                row.get("additional"),
-                row.get("note"),
-            ]
-            for c, val in enumerate(cols):
-                self.table_widget9.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+    # ─── заливаем данные без срабатывания itemChanged ───
+    self.table_widget9.blockSignals(True)
 
-        self.table_widget9.resizeRowsToContents()
+    self.table_widget9.setRowCount(len(rows))
+    for r, row in enumerate(rows):
+        for c, field in CBR_FIELDS.items():
+            val = row.get(field)
+            it  = QTableWidgetItem("" if val is None else str(val))
+
+            it.setData(Qt.ItemDataRole.UserRole, it.text())     # «оригинал»
+            if c == 0:
+                it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft |
+                                Qt.AlignmentFlag.AlignVCenter)
+            self.table_widget9.setItem(r, c, it)
+
+    self.table_widget9.resizeRowsToContents()
+    self.table_widget9.blockSignals(False)
+
+def _flash_row9(tbl: QTableWidget, row: int, msec: int = 400):
+    tbl.blockSignals(True)
+    for c in range(tbl.columnCount()):
+        cell = tbl.item(row, c)
+        if cell:
+            cell.setBackground(QColor(139, 197, 64, 40))
+    tbl.blockSignals(False)
+
+    def _clear():
+        tbl.blockSignals(True)
+        for c in range(tbl.columnCount()):
+            cell = tbl.item(row, c)
+            if cell:
+                cell.setBackground(QColor(0, 0, 0, 0))
+        tbl.blockSignals(False)
+    QTimer.singleShot(msec, _clear)
+
+
+def on_cbr_item_changed(self, item: QTableWidgetItem):
+    if item.column() == 0:              # ID не редактируем
+        return
+
+    original = item.data(Qt.ItemDataRole.UserRole)
+    new_val  = item.text().strip()
+    col      = item.column()
+
+    # ── локальная валидация ──
+    try:
+        if col in (8, 9):                               # даты
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                try:
+                    new_val = QDate.fromString(new_val, fmt).toString("yyyy-MM-dd")
+                    if new_val: break
+                except Exception:
+                    pass
+            if not new_val:
+                raise ValueError("Неверный формат даты")
 
     except Exception as e:
-        print("Ошибка загрузки данных для CBR:", e)
+        _rollback_cbr(item, original, e)
+        return
+
+    field  = CBR_FIELDS[col]
+    rec_id = self.table_widget9.item(item.row(), 0).text()
+
+    # ── запись в БД ──
+    try:
+        with pymysql.connect(host="localhost", port=3306,
+                             user="newuser", password="852456qaz",
+                             database="IB", charset="utf8mb4",
+                             cursorclass=pymysql.cursors.DictCursor) as con:
+            cur = con.cursor()
+            cur.execute(f"UPDATE CBR SET `{field}`=%s WHERE ID=%s",
+                        (new_val, rec_id))
+            con.commit()
+
+        item.setData(Qt.ItemDataRole.UserRole, new_val)  # зафиксировали
+        _flash_row9(self.table_widget9, item.row())
+
+    except Exception as e:
+        _rollback_cbr(item, original, e)
+
+def _rollback_cbr(item: QTableWidgetItem, original: str, err) -> None:
+    tbl = item.tableWidget()
+    tbl.blockSignals(True)
+    item.setText(original)                        # визуальный откат
+    tbl.blockSignals(False)
+    QtWidgets.QMessageBox.critical(tbl, "Ошибка сохранения", str(err))
 
 def save_value9(self):
     errors = []

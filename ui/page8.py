@@ -4,7 +4,7 @@ from PyQt6.QtGui import QShortcut, QKeySequence, QPalette, QColor, QIntValidator
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout,
     QComboBox, QSizePolicy, QGroupBox, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QDateEdit,
-    QStyleOptionViewItem, QStyledItemDelegate
+    QStyleOptionViewItem, QStyledItemDelegate, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QDate, QTimer
 
@@ -243,29 +243,41 @@ def create_page8(self) -> QWidget:
 
 
 def create_data_table8(self) -> QWidget:
-    from PyQt6.QtCore import QEvent          #  ← импорт внутри функции, чтобы ничего больше не менять
+    from PyQt6.QtCore import QEvent      # локальный импорт – как просили
 
     widget = QWidget()
     layout = QVBoxLayout(widget)
     layout.setSpacing(5)
 
-    # ──  строка поиска  ────────────────────────────────────────
+    # ── строка поиска ──────────────────────────────────────────
     search_row = QHBoxLayout()
     label = QLabel("Поиск:")
     self.search_line8 = QLineEdit(placeholderText="Введите текст для поиска…")
-
-    # рамка + скругление для line-edit
     self.search_line8.setStyleSheet(
         "QLineEdit{border:1px solid #d0d0d0; border-radius:4px; padding:2px 6px;}"
-        "QLineEdit:focus{border:1px solid " + ACCENT + ";}"
+        f"QLineEdit:focus{{border:1px solid {ACCENT};}}"
     )
     search_row.addWidget(label)
     search_row.addWidget(self.search_line8)
     layout.addLayout(search_row)
 
-    # ──  таблица  ──────────────────────────────────────────────
-    self.table_widget8 = QTableWidget()
-    self.table_widget8.setStyleSheet(        # рамка таблицы
+    # ──   Т А Б Л И Ц А   ──────────────────────────────────────
+    outer_self = self          # понадобится в замыкании
+
+    class KeysTable(QTableWidget):
+        """Отдельный класс, чтобы не плодить eventFilter-ов."""
+        def mouseDoubleClickEvent(tbl, ev):
+            # правый ⇢ копируем строку; левый ⇢ обычное редактирование
+            if ev.button() == Qt.MouseButton.RightButton:
+                row = tbl.rowAt(ev.position().toPoint().y())
+                if row != -1:
+                    on_key_row_double_clicked(outer_self, tbl.item(row, 0))
+                # «съедаем» событие, чтобы Qt не открывал редактор
+                return
+            super().mouseDoubleClickEvent(ev)
+
+    self.table_widget8 = KeysTable()
+    self.table_widget8.setStyleSheet(
         "QTableWidget{border:1px solid #d0d0d0; border-radius:4px;}"
     )
 
@@ -282,6 +294,7 @@ def create_data_table8(self) -> QWidget:
     # перенос строк без «…»
     self.table_widget8.setWordWrap(True)
     self.table_widget8.setTextElideMode(Qt.TextElideMode.ElideNone)
+
     class _Wrap(QStyledItemDelegate):
         def initStyleOption(self, opt, idx):
             super().initStyleOption(opt, idx)
@@ -289,29 +302,33 @@ def create_data_table8(self) -> QWidget:
     self.table_widget8.setItemDelegate(_Wrap(self.table_widget8))
 
     # стартовые ширины
-    for col, w in enumerate((40,70,110,120,110,140,150,90,95,95,120,120,150)):
+    for col, w in enumerate(
+        (40, 70, 110, 120, 110, 140, 150, 90, 95, 95, 120, 120, 150)
+    ):
         hdr = self.table_widget8.horizontalHeader()
         hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
         hdr.resizeSection(col, w)
     self.table_widget8.horizontalHeader().setStretchLastSection(True)
-    self.table_widget8.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-
-    # ⇢ двойной клик ЛЮБОЙ кнопкой
-    def _table_event_filter(obj, ev):
-        if ev.type() == QEvent.MouseButtonDblClick:
-            row = self.table_widget8.rowAt(ev.pos().y())
-            if row != -1:                       # вызываем вашу функцию
-                self.on_key_row_double_clicked(self.table_widget8.item(row, 0))
-            return True                         # событие обработано
-        return False
-    self.table_widget8.installEventFilter(self.table_widget8)
-    self.table_widget8.eventFilter = _table_event_filter   # сохраняем, чтобы не было GC
+    self.table_widget8.verticalHeader().setSectionResizeMode(
+        QHeaderView.ResizeMode.ResizeToContents
+    )
 
     layout.addWidget(self.table_widget8)
 
     # ── поиск / загрузка ──────────────────────────────────────
     self.search_line8.textChanged.connect(lambda: load_data8(self))
     load_data8(self)
+
+    # разрешаем редактирование ЛКМ
+    self.table_widget8.setEditTriggers(
+        QAbstractItemView.EditTrigger.DoubleClicked
+        | QAbstractItemView.EditTrigger.SelectedClicked
+    )
+
+    # сохранение изменений
+    self.table_widget8.itemChanged.connect(
+        lambda it: on_key_item_changed(self, it)
+    )
 
     return widget
 
@@ -394,48 +411,117 @@ def load_data8(self):
                 row.get("note"),
             ]
             for c, val in enumerate(cols):
-                self.table_widget8.setItem(
-                    r, c, QTableWidgetItem(str(val) if val is not None else ""))
+                item = QTableWidgetItem("" if val is None else str(val))
+                item.setData(Qt.ItemDataRole.UserRole, item.text())
+                if c == 0:  # ID – только для чтения
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                self.table_widget8.setItem(r, c, item)
         self.table_widget8.resizeRowsToContents()
 
     finally:
         # ▸ обязательно возвращаем сигнал обратно
         self.table_widget8.blockSignals(False)
 
+def _flash_row(tbl: QTableWidget, row: int, msec: int = 400):
+    tbl.blockSignals(True)
+    for col in range(tbl.columnCount()):
+        cell = tbl.item(row, col)
+        if cell:
+            cell.setBackground(QColor(139, 197, 64, 40))   # мягкая зелёная
+    tbl.blockSignals(False)
+
+    def _clear():
+        tbl.blockSignals(True)
+        for col in range(tbl.columnCount()):
+            cell = tbl.item(row, col)
+            if cell:
+                cell.setBackground(QColor(0, 0, 0, 0))
+        tbl.blockSignals(False)
+
+    QTimer.singleShot(msec, _clear)
 
 def on_key_item_changed(self, item: QTableWidgetItem):
-    """Обновляем поле в KeysTable при ручном редактировании."""
-    if item.column() == 0:  # ID
+    # 0-я колонка (ID) – неизменяема
+    if item.column() == 0:
         return
 
-        # если пользователь по ошибке стёр дату целиком — игнорируем
-    if item.column() in (8, 9) and not item.text().strip():
-        return
+    original = item.data(Qt.ItemDataRole.UserRole)     # то, что было
+    new_val  = item.text().strip()
+
+    # пример валидации дат прямо здесь ─ можно расширить по своим правилам
+    if item.column() in (8, 9):                        # «Начало» / «Окончание»
+        try:
+            # допускаем dd.MM.yyyy или yyyy-MM-dd
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                try:
+                    new_val = datetime.strptime(new_val, fmt).strftime("%Y-%m-%d")
+                    break
+                except ValueError:
+                    pass
+            else:                                      # не распознали
+                raise ValueError("Неверный формат даты")
+        except ValueError as e:
+            _rollback(item, original, str(e))
+            return
 
     field_names = [
-        "ID", "status", "type", "cert_serial_le", "owner",
-        "scope_using", "owner_fullname", "VIP_Critical",
-        "start_date", "date_end", "additional",
-        "number_request", "note"
+        "ID","status","type","cert_serial_le","owner",
+        "scope_using","owner_fullname","VIP_Critical",
+        "start_date","date_end","additional","number_request","note"
     ]
-    field = field_names[item.column()]
+    field     = field_names[item.column()]
     record_id = self.table_widget8.item(item.row(), 0).text()
-    new_val = item.text()
 
     try:
-        con = pymysql.connect(
+        with pymysql.connect(
             host="localhost", port=3306, user="newuser", password="852456qaz",
             database="IB", charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor
-        )
-        cur = con.cursor()
-        cur.execute(f"UPDATE KeysTable SET `{field}`=%s WHERE ID=%s",
-                    (new_val, record_id))
-        con.commit();
-        con.close()
-    except Exception as e:
-        QtWidgets.QMessageBox.critical(self, "Ошибка сохранения", str(e))
+        ) as con:
+            cur = con.cursor()
+            cur.execute(f"UPDATE KeysTable SET `{field}`=%s WHERE ID=%s",
+                        (new_val, record_id))
+            con.commit()
 
+        # ✓ всё сохранилось – запоминаем новое значение как «оригинал»
+        item.setData(Qt.ItemDataRole.UserRole, new_val)
+        _flash_row(self.table_widget8, item.row())     # зелёная вспышка
+
+    except Exception as e:
+        con.rollback()                                 # на всякий случай
+        _rollback(item, original, e)
+
+
+def _rollback(item: QTableWidgetItem, original: str, err) -> None:
+    """Откатывает визуально и показывает ошибку."""
+    tbl = item.tableWidget()
+    tbl.blockSignals(True)         # ⚠️ чтобы не вызвать itemChanged второй раз
+    item.setText(original)         # вернули как было
+    tbl.blockSignals(False)
+
+    QtWidgets.QMessageBox.critical(
+        tbl, "Ошибка сохранения", str(err)
+    )
+
+def _flash_row(tbl: QTableWidget, row: int, msec: int = 400):
+    """Мягко подсвечивает строку — как на page 6."""
+    tbl.blockSignals(True)
+    for col in range(tbl.columnCount()):
+        cell = tbl.item(row, col)
+        if cell:
+            cell.setBackground(QColor(139, 197, 64, 40))
+    tbl.blockSignals(False)
+
+    def _clear():
+        tbl.blockSignals(True)
+        for col in range(tbl.columnCount()):
+            cell = tbl.item(row, col)
+            if cell:
+                cell.setBackground(QColor(0, 0, 0, 0))
+        tbl.blockSignals(False)
+
+    QTimer.singleShot(msec, _clear)
 
 def save_value8(self):
     errors = []

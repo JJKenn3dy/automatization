@@ -25,7 +25,7 @@ from ui.page4 import create_page4
 from ui.page5 import create_page5
 from ui.page6 import create_page6, on_row_double_clicked
 from ui.page7 import create_page7
-from ui.page8 import create_page8
+from ui.page8 import create_page8, on_key_row_double_clicked
 from ui.page9 import create_page9
 from ui.page10 import create_page10
 from ui.page11 import create_page11
@@ -101,21 +101,30 @@ class MainWindow(QMainWindow):
         if sender.isChecked():
             self.temp_selection = sender.text()"""
 
-
-
     def eventFilter(self, source, event):
-        # Ждём именно двойного клика на viewport таблицы
-        if source is self.table_widget.viewport() and event.type() == QEvent.Type.MouseButtonDblClick:
-            # Правая кнопка → дублируем в поля
+        # ─── page 6  ─────────────────────────────────────────────
+        if source is self.table_widget.viewport() \
+                and event.type() == QEvent.Type.MouseButtonDblClick:
             if event.button() == Qt.MouseButton.RightButton:
                 pos = event.position().toPoint()
                 item = self.table_widget.itemAt(pos)
                 if item:
-                    on_row_double_clicked(self, item)
+                    on_row_double_clicked(self, item)  # ← page 6-handler
                 return True  # событие обработано
-            # Левая кнопка → возвращаем False, чтобы продолжилось обычное редактирование
+            return False  # левая кнопка → штатное редактирование
+
+        # ─── page 8  (НОВАЯ ветка) ──────────────────────────────
+        if source is self.table_widget8.viewport() \
+                and event.type() == QEvent.Type.MouseButtonDblClick:
+            if event.button() == Qt.MouseButton.RightButton:
+                pos = event.position().toPoint()
+                item = self.table_widget8.itemAt(pos)
+                if item:
+                    on_key_row_double_clicked(self, item)  # ← page 8-handler
+                return True
             return False
-        # Всё остальное — стандартная обработка
+
+        # всё остальное — стандартная обработка
         return super().eventFilter(source, event)
 
     def export_all_sczy(self):

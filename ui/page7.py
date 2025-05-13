@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit,
     QFrame, QGraphicsDropShadowEffect, QTableWidget, QHeaderView,
     QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate,
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QAbstractItemView
 )
 import pymysql
 from datetime import datetime
@@ -18,6 +18,38 @@ from PyQt6.uic.Compiler.qtproxies import QtWidgets
 
 from ui.page1 import load_gilroy, BG, ACCENT, TXT_DARK, CARD_R, PAD_H, PAD_V, BTN_R, BTN_H
 from logic.db   import enter_sczy
+
+
+# ─── helpers ─────────────────────────────────────────────────────────
+def get_connection():
+    """Возвращает открытое соединение с БД (same as page6)."""
+    return pymysql.connect(
+        host="localhost", port=3306,
+        user="newuser", password="852456qaz",
+        database="IB", charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+SCZY_FIELDS = {      # индекс столбца QTableWidget → имя поля в таблице SCZY
+     0: "ID",
+     1: "name_of_SCZY",
+     2: "sczy_type",
+     3: "number_SCZY",
+     4: "date",
+     5: "number_license",
+     6: "location",
+     7: "location_TOM_text",
+     8: "owner",
+     9: "date_and_number",
+    10: "contract",
+    11: "fullname_owner",
+    12: "owners",
+    13: "buss_proc",
+    14: "additional",
+    15: "note",
+    16: "number_certificate",
+    17: "date_expired",
+}
 
 
 class SkziTableWidget(QTableWidget):
@@ -450,6 +482,15 @@ def create_data_table7(self) -> QFrame:
         QHeaderView.ResizeMode.ResizeToContents
     )
 
+    self.table_widget7.setEditTriggers(
+        QAbstractItemView.EditTrigger.DoubleClicked |
+        QAbstractItemView.EditTrigger.SelectedClicked
+    )
+    # сохраняем изменения
+    self.table_widget7.itemChanged.connect(
+        lambda it: on_sczy_item_changed(self, it)
+    )
+
     self.table_widget7.setSizePolicy(QSizePolicy.Policy.Expanding,
                                      QSizePolicy.Policy.Expanding)
     lay.addWidget(self.table_widget7, stretch=1)
@@ -485,60 +526,139 @@ def on_sczy_row_double_clicked(self, item: QTableWidgetItem):
 
 # ─────────────────────────────────────────────────────────────────────
 def load_data7(self):
-    srch = self.search_line7.text().strip()
+    """
+    Заполняет таблицу self.table_widget7 данными из таблицы SCZY.
+    Если в строке поиска что-то введено, отбирает не более 50
+    последних строк, удовлетворяющих условию LIKE; иначе —
+    выводит до 500 последних записей.
+    """
+    search = self.search_line7.text().strip()
+
     try:
-        con = pymysql.connect(
-            host="localhost", port=3306, user="newuser", password="852456qaz",
-            database="IB", charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor
-        )
-        cur = con.cursor()
-        if srch:
-            patt = f"%{srch}%"
-            cur.execute("""
-                SELECT * FROM SCZY
-                WHERE CAST(ID               AS CHAR) LIKE %s
-                   OR name_of_SCZY               LIKE %s
-                   OR sczy_type                  LIKE %s
-                   OR number_SCZY                LIKE %s
-                   OR CAST(date                AS CHAR) LIKE %s
-                   OR number_license             LIKE %s
-                   OR location                   LIKE %s
-                   OR location_TOM_text          LIKE %s
-                   OR owner                      LIKE %s
-                   OR date_and_number            LIKE %s
-                   OR contract                   LIKE %s
-                   OR fullname_owner             LIKE %s
-                   OR owners                     LIKE %s
-                   OR buss_proc                  LIKE %s
-                   OR additional                 LIKE %s
-                   OR note                       LIKE %s
-                   OR number_certificate         LIKE %s
-                   OR CAST(date_expired        AS CHAR) LIKE %s
-                ORDER BY ID DESC
-                LIMIT 50
-            """, (patt,) * 18)
-        else:
-            cur.execute("SELECT * FROM SCZY ORDER BY ID DESC LIMIT 500")
+        # ---------- запрос к базе ----------
+        with get_connection() as con:
+            cur = con.cursor()
 
-        rows = cur.fetchall()
-        con.close()
+            if search:
+                patt  = f"%{search}%"
+                where = " OR ".join(
+                    [f"CAST({col} AS CHAR) LIKE %s"
+                     for col in SCZY_FIELDS.values()]
+                )
+                sql = (
+                    f"SELECT * FROM SCZY "
+                    f"WHERE {where} "
+                    "ORDER BY ID DESC LIMIT 50"
+                )
+                cur.execute(sql, (patt,) * len(SCZY_FIELDS))
+            else:
+                cur.execute("SELECT * FROM SCZY ORDER BY ID DESC LIMIT 500")
 
+            rows = cur.fetchall()
+            print("SCZY rows fetched:", len(rows))
+            if rows:
+                print("first row:", rows[0])
+
+        # ---------- заполняем таблицу ----------
+        self.table_widget7.blockSignals(True)          # не порождаем itemChanged
         self.table_widget7.setRowCount(len(rows))
+
         for r, row in enumerate(rows):
-            data = [
-                row.get("ID"), row.get("name_of_SCZY"), row.get("sczy_type"),
-                row.get("number_SCZY"), row.get("date"), row.get("number_license"),
-                row.get("location"), row.get("location_TOM_text"), row.get("owner"),
-                row.get("date_and_number"), row.get("contract"), row.get("fullname_owner"),
-                row.get("owners"), row.get("buss_proc"), row.get("additional"),
-                row.get("note"), row.get("number_certificate"), row.get("date_expired")
-            ]
-            for c, val in enumerate(data):
-                self.table_widget7.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+            for c, field in SCZY_FIELDS.items():
+                val = row.get(field)
+                it = QTableWidgetItem("" if val is None else str(val))
+
+                it.setData(Qt.ItemDataRole.UserRole, it.text())  # ← запомнили исходник
+                if c == 0:  # ID read-only
+                    it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+                it.setTextAlignment(Qt.AlignmentFlag.AlignLeft |
+                                    Qt.AlignmentFlag.AlignVCenter)
+                self.table_widget7.setItem(r, c, it)
+
         self.table_widget7.resizeRowsToContents()
+        self.table_widget7.blockSignals(False)
+
+
+
 
     except Exception as e:
+        # попадём сюда при любой ошибке соединения / SQL
         print("SCZY load error:", e)
+
+
+
+def _flash_row7(tbl: QTableWidget, row: int, msec: int = 400):
+    tbl.blockSignals(True)
+    for c in range(tbl.columnCount()):
+        cell = tbl.item(row, c)
+        if cell:
+            cell.setBackground(QColor(139, 197, 64, 40))
+    tbl.blockSignals(False)
+
+    def _clear():
+        tbl.blockSignals(True)
+        for c in range(tbl.columnCount()):
+            cell = tbl.item(row, c)
+            if cell:
+                cell.setBackground(QColor(0,0,0,0))
+        tbl.blockSignals(False)
+    QTimer.singleShot(msec, _clear)
+
+ # ───────────── helper ─────────────
+def _rollback_sczy(item: QTableWidgetItem, original: str, err) -> None:
+    tbl = item.tableWidget()
+    tbl.blockSignals(True)  # не вызывать itemChanged повторно
+    item.setText(original)
+    tbl.blockSignals(False)
+
+    QMessageBox.critical(tbl, "Ошибка сохранения", str(err))
+
+def on_sczy_item_changed(self, item: QTableWidgetItem):
+    if item.column() == 0:                               # ID
+        return
+
+    original = item.data(Qt.ItemDataRole.UserRole)       # было
+    new_val  = item.text().strip()
+    col      = item.column()
+
+    # ── валидация ─────────────────────────────────────────
+    try:
+        # колонки 4 и 17 — это даты
+        if col in (4, 17):
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                try:
+                    new_val = datetime.strptime(new_val, fmt)\
+                                      .strftime("%Y-%m-%d")
+                    break
+                except ValueError:
+                    pass
+            else:
+                raise ValueError("Неверный формат даты")
+
+        # здесь можно добавить другие проверки по желанию
+
+    except Exception as e:            # ошибка локальной проверки
+        _rollback_sczy(item, original, e)
+        return
+
+    field   = list(SCZY_FIELDS.values())[col]
+    rec_id  = self.table_widget7.item(item.row(), 0).text()
+
+    # ── попытка записать в БД ────────────────────────────
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute(f"UPDATE SCZY SET `{field}`=%s WHERE ID=%s",
+                        (new_val, rec_id))
+            con.commit()
+
+        item.setData(Qt.ItemDataRole.UserRole, new_val)  # фиксируем новое
+        _flash_row7(self.table_widget7, item.row())
+
+    except Exception as e:            # ошибка SQL
+        _rollback_sczy(item, original, e)
+
 
 # ─────────────────────────────────────────────────────────────────────
 def save_value7(self):

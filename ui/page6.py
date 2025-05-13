@@ -28,6 +28,33 @@ PAD_H  = 20            # внутренние отступы
 PAD_V  = 16
 # ————————————————————————————————————
 
+def get_connection():
+    """
+    Возвращает открытое соединение с БД.
+    Используйте with-контекст, чтобы гарантировать close().
+    """
+    return pymysql.connect(
+        host="localhost", port=3306,
+        user="newuser", password="852456qaz",
+        database="IB", charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+
+LICENSE_FIELDS = {
+     0: "ID",
+     1: "number",
+     2: "name_of_soft",
+     3: "number_lic",
+     4: "scop_using",
+     5: "fullname",
+     6: "name_apm",
+     7: "date",
+     8: "fullname_it",
+     9: "status",
+    10: "input_mark",
+    11: "input_date",
+}
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   С О З Д А Н И Е   С Т Р А Н И Ц Ы   « Л И Ц Е Н З И И »         ║
@@ -501,98 +528,125 @@ def load_data(self):
     Загружает данные в таблицу License,
     при поиске фильтруя по всем столбцам.
     """
-    search_text = self.search_line.text().strip()
+    search = self.search_line.text().strip()
+
     try:
-        con = pymysql.connect(
-            host="localhost", port=3306, user="newuser", password="852456qaz",
-            database="IB", charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        cur = con.cursor()
-        if search_text:
-            patt = f"%{search_text}%"
-            cur.execute("""
-                SELECT * FROM License
-                WHERE CAST(ID           AS CHAR) LIKE %s
-                   OR CAST(number       AS CHAR) LIKE %s
-                   OR name_of_soft             LIKE %s
-                   OR number_lic               LIKE %s
-                   OR scop_using               LIKE %s
-                   OR fullname                 LIKE %s
-                   OR name_apm                 LIKE %s
-                   OR CAST(date          AS CHAR) LIKE %s
-                   OR fullname_it              LIKE %s
-                   OR CAST(status       AS CHAR) LIKE %s
-                   OR input_mark               LIKE %s
-                   OR input_date               LIKE %s
-                ORDER BY ID DESC
-                LIMIT 50
-            """, (patt,)*12)
-        else:
-            cur.execute("SELECT * FROM License ORDER BY ID DESC LIMIT 500")
+        with get_connection() as con:  # ← NEW
+            cur = con.cursor()
 
-        rows = cur.fetchall()
-        con.close()
+            if search:
+                patt = f"%{search}%"
+                placeholders = ", ".join(["%s"] * len(LICENSE_FIELDS))
+                query = f"""
+                       SELECT * FROM License
+                       WHERE {" OR ".join([f"CAST({f} AS CHAR) LIKE %s" for f in LICENSE_FIELDS.values()])}
+                       ORDER BY ID DESC LIMIT 50
+                   """
+                cur.execute(query, (patt,) * len(LICENSE_FIELDS))
+            else:
+                cur.execute("SELECT * FROM License ORDER BY ID DESC LIMIT 500")
 
-        # Блокируем сигнал itemChanged, чтобы не реагировать на программное заполнение
+            rows = cur.fetchall()
+
+        # блокируем сигнал, заливаем данные
         self.table_widget.blockSignals(True)
         self.table_widget.setRowCount(len(rows))
+
         for r, row in enumerate(rows):
-            columns = [
-                row.get("ID"),
-                row.get("number"),
-                row.get("name_of_soft"),
-                row.get("number_lic"),
-                row.get("scop_using"),
-                row.get("fullname"),
-                row.get("name_apm"),
-                row.get("date"),
-                row.get("fullname_it"),
-                row.get("status"),
-                row.get("input_mark"),
-                row.get("input_date")
-            ]
-            for c, val in enumerate(columns):
-                item = QTableWidgetItem(str(val) if val is not None else "")
-                # выравниваем по левому краю
-                item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            for c in LICENSE_FIELDS:
+                value = row.get(LICENSE_FIELDS[c])
+                item = QTableWidgetItem("" if value is None else str(value))
+                item.setData(Qt.ItemDataRole.UserRole, item.text())  # ← оригинал
+                if c == 0:  # ID read-only
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)                # колонки: ID read-only
+                if c == 0:
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 self.table_widget.setItem(r, c, item)
+
         self.table_widget.resizeRowsToContents()
         self.table_widget.blockSignals(False)
 
     except Exception as e:
-        print("Ошибка загрузки данных:", e)
+        print("load_data error:", e)
+
+def _flash_row(tbl: QTableWidget, row: int, msec: int = 400):
+    """Коротко подсвечивает строку и не порождает itemChanged."""
+    tbl.blockSignals(True)                       # ▸ Глушим
+    for col in range(tbl.columnCount()):
+        cell = tbl.item(row, col)
+        if cell:
+            cell.setBackground(QColor(139, 197, 64, 40))
+    tbl.blockSignals(False)                      # ◂ Включаем
+
+    def _clear():
+        tbl.blockSignals(True)
+        for col in range(tbl.columnCount()):
+            cell = tbl.item(row, col)
+            if cell:
+                cell.setBackground(QColor(0, 0, 0, 0))
+        tbl.blockSignals(False)
+
+    QTimer.singleShot(msec, _clear)
 
 def on_license_item_changed(self, item: QTableWidgetItem):
-    """
-    При ручном редактировании ячейки: сохраняем новое значение в БД.
-    ID (столбец 0) не правим.
-    """
+    # ID не редактируем
     if item.column() == 0:
         return
 
-    field_names = [
-        "ID", "number", "name_of_soft", "number_lic", "scop_using",
-        "fullname", "name_apm", "date", "fullname_it", "status",
-        "input_mark", "input_date"
-    ]
-    field = field_names[item.column()]
-    record_id = self.table_widget.item(item.row(), 0).text()
-    new_value = item.text()
+    original = item.data(Qt.ItemDataRole.UserRole)        # что было
+    new_val  = item.text().strip()
+    col      = item.column()
+
+    # ─── локальная валидация ──────────────────────────────
+    try:
+        # Дата (колонка 7) – принимаем  dd.MM.yyyy  или  yyyy-MM-dd
+        if col == 7:
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                try:
+                    new_val = datetime.strptime(new_val, fmt).strftime("%Y-%m-%d")
+                    break
+                except ValueError:
+                    pass
+            else:
+                raise ValueError("Неверный формат даты")
+
+        # Статус (колонка 9) – только 1, 2 или 3
+        if col == 9 and new_val not in ("1", "2", "3"):
+            raise ValueError("Статус должен быть 1, 2 или 3")
+
+        # Другие колонки – доп. проверки при желании
+    except Exception as e:                 # локальная ошибка валидации
+        _rollback_license(item, original, e)
+        return
+
+    # ─── пишем в БД ───────────────────────────────────────
+    field   = list(LICENSE_FIELDS.values())[col]
+    rec_id  = self.table_widget.item(item.row(), 0).text()
 
     try:
-        con = pymysql.connect(
-            host="localhost", port=3306, user="newuser", password="852456qaz",
-            database="IB", charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        cur = con.cursor()
-        cur.execute(f"UPDATE License SET `{field}` = %s WHERE ID = %s",
-                    (new_value, record_id))
-        con.commit()
-        con.close()
-    except Exception as e:
-        QMessageBox.critical(self, "Ошибка сохранения", str(e))
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute(f"UPDATE License SET `{field}`=%s WHERE ID=%s",
+                        (new_val, rec_id))
+            con.commit()
+
+        # ✔ успех – запоминаем новое значение как «оригинал»
+        item.setData(Qt.ItemDataRole.UserRole, new_val)
+        _flash_row(self.table_widget, item.row())
+
+    except Exception as e:                 # SQL-ошибка, откат
+        _rollback_license(item, original, e)
+
+def _rollback_license(item: QTableWidgetItem, original: str, err) -> None:
+    """Возврат текста + показ диалога с ошибкой."""
+    tbl = item.tableWidget()
+    tbl.blockSignals(True)          # чтобы не вызвать itemChanged повторно
+    item.setText(original)
+    tbl.blockSignals(False)
+
+    QMessageBox.critical(tbl, "Ошибка сохранения", str(err))
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   С О Х Р А Н Е Н И Е   В   Б Д                                   ║
