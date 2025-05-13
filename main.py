@@ -32,7 +32,6 @@ def check_for_updates() -> None:
             break
     if not zip_url:
         return
-
     # скачиваем и распаковываем
     resp = requests.get(zip_url, timeout=30);
     resp.raise_for_status()
