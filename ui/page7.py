@@ -3,13 +3,13 @@
 # ────────────────────────────────────────────────────────────────────
 import pandas as pd
 from PyQt6.QtCore   import Qt, QTimer, QDate
-from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
+from PyQt6.QtGui import QFontDatabase, QShortcut, QKeySequence, QColor, QIcon
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QLabel, QPushButton, QLineEdit, QComboBox, QDateEdit,
     QFrame, QGraphicsDropShadowEffect, QTableWidget, QHeaderView,
     QTableWidgetItem, QSizePolicy, QScrollArea, QSpacerItem, QApplication, QStyleOptionViewItem, QStyledItemDelegate,
-    QMessageBox, QFileDialog, QAbstractItemView
+    QMessageBox, QFileDialog, QAbstractItemView, QToolButton
 )
 import pymysql
 from datetime import datetime
@@ -316,11 +316,35 @@ def create_page7(self) -> QWidget:
     self.skzi_type       = _combo("Тип СКЗИ", ["ПО", "ПАК"], f_body)
     self.skzi_version_cb = _combo("Версия СКЗИ", [], f_body)
     self.dateedit        = QDateEdit(calendarPopup=True)
+    self.dateedit.setStyleSheet("""
+                /* ─ Навигационная панель ─────────────────────────── */
+                QCalendarWidget QWidget#qt_calendar_navigationbar {
+                    background: #ffffff;              /* белый фон */
+                }
+
+                /* Все кнопки на панели */
+                QCalendarWidget QToolButton {
+                    background: transparent;
+                    color: #000000;                  /* ЧЁРНЫЙ текст всегда виден */
+                    height: 24px;
+                    margin: 2px;
+                }
+                QCalendarWidget QToolButton:hover {   /* лёгкая подсветка при наведении */
+                    background: rgba(0,0,0,0.06);
+                }
+            """)
+    for btn_name, char in (("qt_calendar_prevmonth", "‹"),
+                           ("qt_calendar_nextmonth", "›")):
+        cal = self.dateedit.calendarWidget()
+        btn = cal.findChild(QToolButton, btn_name)
+        btn.setText(char)
+        btn.setStyleSheet("color:#000; font:16px 'Gilroy'; background:transparent;")
+        btn.setIcon(QIcon())  # убрать встроенную пиктограмму
+
     self.dateedit.setFont(f_body)
-
-
     self.dateedit.setDate(QDate.currentDate())
     self.dateedit.setFixedHeight(34)
+
     self.location        = _edit("Местонахождение СКЗИ", f_body)
     self.location_TOM = _edit("Документация (ТОМ)", f_body)
     self.doc_info_skzi = _edit("Дата и номер документа", f_body)
@@ -349,6 +373,31 @@ def create_page7(self) -> QWidget:
     self.dateedit2.setDate(QDate.currentDate())
     self.dateedit2.setFixedHeight(34)
     self.dateedit2.setFont(f_body)
+
+    self.dateedit2.setStyleSheet("""
+                        /* ─ Навигационная панель ─────────────────────────── */
+                        QCalendarWidget QWidget#qt_calendar_navigationbar {
+                            background: #ffffff;              /* белый фон */
+                        }
+
+                        /* Все кнопки на панели */
+                        QCalendarWidget QToolButton {
+                            background: transparent;
+                            color: #000000;                  /* ЧЁРНЫЙ текст всегда виден */
+                            height: 24px;
+                            margin: 2px;
+                        }
+                        QCalendarWidget QToolButton:hover {   /* лёгкая подсветка при наведении */
+                            background: rgba(0,0,0,0.06);
+                        }
+                    """)
+    for btn_name, char in (("qt_calendar_prevmonth", "‹"),
+                           ("qt_calendar_nextmonth", "›")):
+        cal = self.dateedit2.calendarWidget()  # то же для dateedit2
+        btn = cal.findChild(QToolButton, btn_name)
+        btn.setText(char)
+        btn.setStyleSheet("color:#000; font:16px 'Gilroy'; background:transparent;")
+        btn.setIcon(QIcon())  # убрать встроенную пиктограмму
 
     FR.addRow("Регистрационный номер", self.reg_number_le)
     FR.addRow("От кого получены", self.from_whom_cb)

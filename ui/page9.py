@@ -1,4 +1,6 @@
 # ui/page9.py
+from datetime import datetime
+
 from PyQt6.QtCore   import Qt, QDate, QTimer
 from PyQt6.QtGui    import QFontDatabase, QShortcut, QKeySequence, QColor
 from PyQt6.QtWidgets import (
@@ -29,6 +31,7 @@ CBR_FIELDS = {
     10: "additional",
     11: "note",
 }
+
 
 # ───── маленькие фабрики ──────────────────────────────────────────────
 def _hline(color=ACCENT, h=2):
@@ -185,16 +188,30 @@ def create_page9(self) -> QWidget:
 
     # ── кнопка «Сохранить»
     btn_save = _btn("Сохранить", 30)
-    btn_save.setFixedWidth(1280)
+    btn_save.setFixedWidth(300)
     btn_save.clicked.connect(lambda: save_value9(self))
     cbox.addSpacing(5); cbox.addWidget(btn_save,0,Qt.AlignmentFlag.AlignHCenter); cbox.addSpacing(5)
+
+    # ── export-кнопки в ряд ───────────────────────────────────────────
+    ex_row = QHBoxLayout()
+    ex_row.setSpacing(12)
+    btn_export_all = _btn("Экспорт всех данных КБР", 30)
+    btn_export_all.setFixedWidth(350)
+    btn_export_filtered = _btn("Экспорт отфильтрованных КБР", 30)
+    btn_export_filtered.setFixedWidth(350)
+
+    ex_row.addWidget(btn_export_all, alignment=Qt.AlignmentFlag.AlignRight)
+    ex_row.addWidget(btn_export_filtered, alignment=Qt.AlignmentFlag.AlignLeft)
+    cbox.addLayout(ex_row)
+
+    btn_export_all.clicked.connect(self.export_all_CBR)
+    btn_export_filtered.clicked.connect(self.export_filtered_CBR)
 
     # ── таблица + поиск
     tbl_frame = create_data_table9(self)
     tbl_frame.setStyleSheet("background:#fff;border:1px solid #d0d0d0;border-radius:8px;")
     tbl_frame.setMinimumHeight(200)
     cbox.addWidget(tbl_frame)
-
 
 
     # Enter → сохранить
@@ -225,6 +242,49 @@ def create_data_table9(self) -> QWidget:
 
     # ── таблица ────────────────────────────────────────────────────
     self.table_widget9 = QTableWidget()                      # ① СОЗДАЁМ
+
+    outer_self = self  # понадобится в замыкании
+
+    class KeysTable(QTableWidget):
+        """Отдельный класс, чтобы не плодить eventFilter-ов."""
+
+        def mouseDoubleClickEvent(tbl, ev):
+            # правый ⇢ копируем строку; левый ⇢ обычное редактирование
+            if ev.button() == Qt.MouseButton.RightButton:
+                row = tbl.rowAt(ev.position().toPoint().y())
+                if row != -1:
+                    on_key_row_double_clicked(outer_self, tbl.item(row, 0))
+                # «съедаем» событие, чтобы Qt не открывал редактор
+                return
+            super().mouseDoubleClickEvent(ev)
+
+    def on_key_row_double_clicked(self, item: QTableWidgetItem):
+        row = item.row()
+        get = lambda col: self.table_widget9.item(row, col).text() if self.table_widget9.item(row, col) else ""
+
+        self.request_le.setText(get(1))
+        self.nositel_cb.lineEdit().setText(get(2))
+        self.nositel_serial_cb.lineEdit().setText(get(3))
+        self.key_number_le.setText(get(4))
+        self.issuer_cb.lineEdit().setText(get(5))
+        self.scope_cb.lineEdit().setText(get(6))
+        self.owner_cb.lineEdit().setText(get(7))
+        # ─── дата начала ─────────────────────────────────────────
+        _safe_set(self.dateedit1, get(8))
+        _safe_set(self.dateedit2, get(9))  # конец
+        self.additional_cb_key.lineEdit().setText(get(10))
+        self.additional1_le.setText(get(11))
+        self.additional2_le.setText(get(12))
+
+    # ─── on_key_row_double_clicked ─────────────────────────────
+    def _safe_set(dateedit: QDateEdit, txt: str):
+        for fmt in ("yyyy-MM-dd", "dd.MM.yyyy"):
+            qd = QDate.fromString(txt, fmt)
+            if qd.isValid():  # ✔ только валидные даты
+                dateedit.setDate(qd)
+                break  # нашли – хватит
+
+    self.table_widget9 = KeysTable()
     headers = [
         "ID", "Заявка", "Статус", "Серийный номер", "Номер ключа",
         "УЦ", "Область/ЭДО", "Владелец", "Дата начала", "Дата окончания",
@@ -342,21 +402,24 @@ def on_cbr_item_changed(self, item: QTableWidgetItem):
     new_val  = item.text().strip()
     col      = item.column()
 
-    # ── локальная валидация ──
-    try:
-        if col in (8, 9):                               # даты
+    # пример валидации дат прямо здесь ─ можно расширить по своим правилам
+    if item.column() in (8, 9):  # «Начало» / «Окончание»
+        try:
             for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
                 try:
-                    new_val = QDate.fromString(new_val, fmt).toString("yyyy-MM-dd")
-                    if new_val: break
-                except Exception:
+                    new_val = datetime.strptime(new_val, fmt) \
+                        .strftime("%Y-%m-%d")
+                    break
+                except ValueError:
                     pass
-            if not new_val:
+            else:
                 raise ValueError("Неверный формат даты")
 
-    except Exception as e:
-        _rollback_cbr(item, original, e)
-        return
+            # здесь можно добавить другие проверки по желанию
+
+        except Exception as e:  # ошибка локальной проверки
+            _rollback_cbr(item, original, e)
+            return
 
     field  = CBR_FIELDS[col]
     rec_id = self.table_widget9.item(item.row(), 0).text()

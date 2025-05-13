@@ -25,8 +25,6 @@ from logic.db import enter_keys  # ← как и раньше
 import pymysql  # для load_data8
 
 
-#  ─── если у вас ещё нет _date, скопируйте из page10 ───
-# def _date(font=None): ...
 
 # ───── маленькие фабрики ──────────────────────────────────────────────
 def _hline(color=ACCENT, h=2):
@@ -80,22 +78,7 @@ def _date(font=None) -> QDateEdit:
     d.setFixedHeight(34)
     d.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     if font: d.setFont(font)
-    d.setStyleSheet(f"""
-        QDateEdit {{
-            background:#fff; border:1px solid #88959e; border-radius:6px;
-            padding:2px 32px 2px 8px; color:{TXT_DARK};
-        }}
-        QDateEdit:focus{{ border:1px solid {ACCENT}; }}
-        QDateEdit::drop-down{{
-            subcontrol-origin:padding; subcontrol-position:top right;
-            width:26px; border:none; background:transparent;
-            border-left:1px solid #88959e;
-        }}
-        QDateEdit::down-arrow{{
-            image:url(icons/chevron_down.png);
-            width:10px; height:6px; margin-right:8px;
-        }}
-    """)
+
     return d
 
 
@@ -222,11 +205,26 @@ def create_page8(self) -> QWidget:
 
     # ── кнопка «Сохранить»
     btn_save = _btn("Сохранить", 30)
-    btn_save.setFixedWidth(1280)
+    btn_save.setFixedWidth(300)
     btn_save.clicked.connect(lambda: save_value8(self))
     cbox.addSpacing(5);
     cbox.addWidget(btn_save, 0, Qt.AlignmentFlag.AlignHCenter);
     cbox.addSpacing(5)
+
+    # ── export-кнопки в ряд ───────────────────────────────────────────
+    ex_row = QHBoxLayout()
+    ex_row.setSpacing(12)
+    btn_export_all = _btn("Экспорт всех данных УКЭП", 30)
+    btn_export_all.setFixedWidth(350)
+    btn_export_filtered = _btn("Экспорт отфильтрованных УКЭП", 30)
+    btn_export_filtered.setFixedWidth(350)
+
+    ex_row.addWidget(btn_export_all, alignment=Qt.AlignmentFlag.AlignRight)
+    ex_row.addWidget(btn_export_filtered, alignment=Qt.AlignmentFlag.AlignLeft)
+    cbox.addLayout(ex_row)
+
+    btn_export_all.clicked.connect(self.export_all_keystab)
+    btn_export_filtered.clicked.connect(self.export_filtered_keystab)
 
     # ── таблица + поиск
     tbl_frame = create_data_table8(self)
@@ -358,6 +356,7 @@ def _safe_set(dateedit: QDateEdit, txt: str):
         if qd.isValid():           # ✔️ только валидные даты
             dateedit.setDate(qd)
             break                  # нашли – хватит
+
 def load_data8(self):
     """
     Загружает из базы данных записи из таблицы KeysTable.

@@ -101,6 +101,8 @@ class MainWindow(QMainWindow):
         if sender.isChecked():
             self.temp_selection = sender.text()"""
 
+
+
     def eventFilter(self, source, event):
         # ─── page 6  ─────────────────────────────────────────────
         if source is self.table_widget.viewport() \
@@ -113,19 +115,249 @@ class MainWindow(QMainWindow):
                 return True  # событие обработано
             return False  # левая кнопка → штатное редактирование
 
-        # ─── page 8  (НОВАЯ ветка) ──────────────────────────────
-        if source is self.table_widget8.viewport() \
-                and event.type() == QEvent.Type.MouseButtonDblClick:
-            if event.button() == Qt.MouseButton.RightButton:
-                pos = event.position().toPoint()
-                item = self.table_widget8.itemAt(pos)
-                if item:
-                    on_key_row_double_clicked(self, item)  # ← page 8-handler
-                return True
-            return False
 
         # всё остальное — стандартная обработка
         return super().eventFilter(source, event)
+
+    def export_all_TLS(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить все данные TLS в Excel",
+            "all_TLS.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            # Получаем все из БД
+            con = pymysql.connect(
+                host="localhost", port=3306,
+                user="newuser", password="852456qaz",
+                database="IB", charset="utf8mb4",
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            cur = con.cursor()
+            cur.execute("SELECT * FROM TLS ORDER BY ID")
+            rows = cur.fetchall()
+            con.close()
+            # Строим DataFrame
+            df = pd.DataFrame(rows)
+
+            # Сохраняем
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+    def export_filtered_TLS(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить отфильтрованные данные TLS в Excel",
+            "export_filltred_TLS.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            # Берём то, что в таблице
+            table = self.table_widget10
+            headers = [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())]
+            data = []
+            for r in range(table.rowCount()):
+                row = {}
+                for c, h in enumerate(headers):
+                    item = table.item(r, c)
+                    row[h] = item.text() if item else ""
+                data.append(row)
+
+            df = pd.DataFrame(data)
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+        # 2) Собираем данные из таблицы
+        model = self.table_widget10  # или ваше имя виджета
+        rows = []
+        for r in range(model.rowCount()):
+            row = {}
+            for c in range(model.columnCount()):
+                header = model.horizontalHeaderItem(c).text()
+                item = model.item(r, c)
+                row[header] = item.text() if item else ""
+            rows.append(row)
+        df = pd.DataFrame(rows)
+
+        # 3) Сохраняем
+        try:
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Экспорт выполнен", f"Выгрузка сохранена в {path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка записи файла", str(e))
+
+    def export_all_CBR(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить все данные УКЭП в Excel",
+            "all_CBR.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            # Получаем все из БД
+            con = pymysql.connect(
+                host="localhost", port=3306,
+                user="newuser", password="852456qaz",
+                database="IB", charset="utf8mb4",
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            cur = con.cursor()
+            cur.execute("SELECT * FROM CBR ORDER BY ID")
+            rows = cur.fetchall()
+            con.close()
+            # Строим DataFrame
+            df = pd.DataFrame(rows)
+
+            # Сохраняем
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+    def export_filtered_CBR(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить отфильтрованные данные КБР в Excel",
+            "export_filltred_CBR.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            # Берём то, что в таблице
+            table = self.table_widget9
+            headers = [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())]
+            data = []
+            for r in range(table.rowCount()):
+                row = {}
+                for c, h in enumerate(headers):
+                    item = table.item(r, c)
+                    row[h] = item.text() if item else ""
+                data.append(row)
+
+            df = pd.DataFrame(data)
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+        # 2) Собираем данные из таблицы
+        model = self.table_widget9  # или ваше имя виджета
+        rows = []
+        for r in range(model.rowCount()):
+            row = {}
+            for c in range(model.columnCount()):
+                header = model.horizontalHeaderItem(c).text()
+                item = model.item(r, c)
+                row[header] = item.text() if item else ""
+            rows.append(row)
+        df = pd.DataFrame(rows)
+
+        # 3) Сохраняем
+        try:
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Экспорт выполнен", f"Выгрузка сохранена в {path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка записи файла", str(e))
+
+
+    def export_all_keystab(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить все данные УКЭП в Excel",
+            "keystab_all.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+        try:
+            # Получаем все из БД
+            con = pymysql.connect(
+                host="localhost", port=3306,
+                user="newuser", password="852456qaz",
+                database="IB", charset="utf8mb4",
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            cur = con.cursor()
+            cur.execute("SELECT * FROM KeysTable ORDER BY ID")
+            rows = cur.fetchall()
+            con.close()
+            # Строим DataFrame
+            df = pd.DataFrame(rows)
+
+            # Сохраняем
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+    def export_filtered_keystab(self):
+        # Диалог сохранения
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить отфильтрованные данные УКЭП в Excel",
+            "keystab_filltred.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        if not path:
+            return
+
+        try:
+            # Берём то, что в таблице
+            table = self.table_widget8
+            headers = [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())]
+            data = []
+            for r in range(table.rowCount()):
+                row = {}
+                for c, h in enumerate(headers):
+                    item = table.item(r, c)
+                    row[h] = item.text() if item else ""
+                data.append(row)
+
+            df = pd.DataFrame(data)
+
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Готово", f"Выгрузка сохранена в:\n{path}")
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка экспорта", str(e))
+
+        # 2) Собираем данные из таблицы
+        model = self.table_widget8  # или ваше имя виджета
+        rows = []
+        for r in range(model.rowCount()):
+            row = {}
+            for c in range(model.columnCount()):
+                header = model.horizontalHeaderItem(c).text()
+                item = model.item(r, c)
+                row[header] = item.text() if item else ""
+            rows.append(row)
+        df = pd.DataFrame(rows)
+
+        # 3) Сохраняем
+        try:
+            df.to_excel(path, index=False)
+            QtWidgets.QMessageBox.information(self, "Экспорт выполнен", f"Выгрузка сохранена в {path}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка записи файла", str(e))
 
     def export_all_sczy(self):
         # Диалог сохранения

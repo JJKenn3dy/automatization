@@ -19,18 +19,19 @@ from ui.page7 import (          # берём фабрики/стили из «к
 )
 
 TLS_FIELDS = {
-    0: "number",
-    1: "date",
-    2: "environment",
-    3: "access",
-    4: "issuer",
-    5: "initiator",
-    6: "owner",
-    7: "algorithm",
-    8: "scope",
-    9: "DNS",
-    10: "resolution",
-    11: "note",
+    0:  "ID",
+    1:  "number",        # Заявка
+    2:  "date",          # Дата
+    3:  "environment",   # Среда
+    4:  "access",        # Доступ
+    5:  "issuer",        # УЦ
+    6:  "initiator",     # Инициатор
+    7:  "owner",         # Владелец АС
+    8:  "algorithm",     # Алгоритм
+    9:  "scope",         # Область/ЭДО
+    10: "DNS",
+    11: "resolution",    # Резолюция ИБ
+    12: "note",          # Примечание
 }
 
 def _flash_row10(tbl: QTableWidget, row: int, msec: int = 400):
@@ -121,40 +122,52 @@ def _date(font=None) -> QDateEdit:
 
 
 def on_tls_item_changed(self, item: QTableWidgetItem):
-    # ID в таблице TLS не выводим → все столбцы редактируемы
+    # 1. ID не редактируем
+    if item.column() == 0:
+        return
+
     col       = item.column()
     original  = item.data(Qt.ItemDataRole.UserRole)
     new_val   = item.text().strip()
+    field     = TLS_FIELDS[col]
+    rec_id    = self.table_widget10.item(item.row(), 0).text()   # ID из нулевой колонки
 
-    # ── простейшая валидация дат (столбец 1) ───────────────────────
-    try:
-        if col == 1:  # «Дата»
-            # допускаем «dd.MM.yyyy» или «yyyy-MM-dd»
+    # ── валидация даты (колонка «Дата» = 2) ──────────────────────
+    # пример валидации дат прямо здесь ─ можно расширить по своим правилам
+    if item.column() == 2:  # «Начало» / «Окончание»
+        try:
             for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
-                qd = QDate.fromString(new_val, fmt)
-                if qd.isValid():
-                    new_val = qd.toString("yyyy-MM-dd")
+                try:
+                    new_val = datetime.strptime(new_val, fmt) \
+                        .strftime("%Y-%m-%d")
                     break
+                except ValueError:
+                    pass
             else:
                 raise ValueError("Неверный формат даты")
-    except Exception as e:
-        _rollback_tls(item, original, e)
-        return
 
-    field = TLS_FIELDS[col]
-    rec_no = self.table_widget10.item(item.row(), 0).text()   # ключ – «Заявка»
+            # здесь можно добавить другие проверки по желанию
 
+        except Exception as e:  # ошибка локальной проверки
+            _rollback_tls(item, original, e)
+            return
+
+    # ── обновление БД по первичному ключу ID ─────────────────────
     try:
-        with pymysql.connect(host="localhost", port=3306,
-                             user="newuser", password="852456qaz",
-                             database="IB", charset="utf8mb4",
-                             cursorclass=pymysql.cursors.DictCursor) as con:
-            cur = con.cursor()
-            cur.execute(f"UPDATE TLS SET `{field}`=%s WHERE number=%s",
-                        (new_val, rec_no))
-            con.commit()
+        with pymysql.connect(
+                host="localhost", port=3306,
+                user="newuser", password="852456qaz",
+                database="IB", charset="utf8mb4",
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=True) as con:           # autocommit чтобы лишний commit не писать
+            with con.cursor() as cur:
+                cur.execute(
+                    f"UPDATE TLS SET `{field}`=%s WHERE ID=%s",
+                    (new_val, rec_id)
+                )
 
-        item.setData(Qt.ItemDataRole.UserRole, new_val)       # фиксируем
+        # фиксация нового значения в таблице
+        item.setData(Qt.ItemDataRole.UserRole, new_val)
         _flash_row10(self.table_widget10, item.row())
 
     except Exception as e:
@@ -265,9 +278,24 @@ def create_page10(self) -> QWidget:
 
     # ― кнопка «Сохранить»
     btn_save = _btn("Сохранить", 30)
-    btn_save.setFixedWidth(1280)              # CARD_W – PAD*2
+    btn_save.setFixedWidth(300)              # CARD_W – PAD*2
     btn_save.clicked.connect(lambda: save_value10(self))
     cbox.addSpacing(5); cbox.addWidget(btn_save,0,Qt.AlignmentFlag.AlignHCenter); cbox.addSpacing(5)
+
+    # ── export-кнопки в ряд ───────────────────────────────────────────
+    ex_row = QHBoxLayout()
+    ex_row.setSpacing(12)
+    btn_export_all = _btn("Экспорт всех данных TLS", 30)
+    btn_export_all.setFixedWidth(350)
+    btn_export_filtered = _btn("Экспорт отфильтрованных TLS", 30)
+    btn_export_filtered.setFixedWidth(350)
+
+    ex_row.addWidget(btn_export_all, alignment=Qt.AlignmentFlag.AlignRight)
+    ex_row.addWidget(btn_export_filtered, alignment=Qt.AlignmentFlag.AlignLeft)
+    cbox.addLayout(ex_row)
+
+    btn_export_all.clicked.connect(self.export_all_TLS)
+    btn_export_filtered.clicked.connect(self.export_filtered_TLS)
 
     # ― таблица + поиск
     tbl_frame = create_data_table10(self)
@@ -298,11 +326,57 @@ def create_data_table10(self) -> QWidget:
 
     # ── таблица ────────────────────────────────────────────────────
     self.table_widget10 = QTableWidget()
+
+    outer_self = self  # понадобится в замыкании
+
+    class KeysTable(QTableWidget):
+        """Отдельный класс, чтобы не плодить eventFilter-ов."""
+
+        def mouseDoubleClickEvent(tbl, ev):
+            # правый ⇢ копируем строку; левый ⇢ обычное редактирование
+            if ev.button() == Qt.MouseButton.RightButton:
+                row = tbl.rowAt(ev.position().toPoint().y())
+                if row != -1:
+                    on_key_row_double_clicked(outer_self, tbl.item(row, 0))
+                # «съедаем» событие, чтобы Qt не открывал редактор
+                return
+            super().mouseDoubleClickEvent(ev)
+
+    def on_key_row_double_clicked(self, item: QTableWidgetItem):
+        row = item.row()
+        get = lambda col: self.table_widget10.item(row, col).text() if self.table_widget10.item(row, col) else ""
+
+        self.request_number_le.setText(get(1))
+        _safe_set(self.dateedit1, get(2))
+        self.env_cb.lineEdit().setText(get(3))
+        self.access_cb.lineEdit().setText(get(4))
+        self.issuer_cb.lineEdit().setText(get(5))
+        self.initiator_cb.lineEdit().setText(get(6))
+        self.owner_cb.lineEdit().setText(get(7))
+        self.algo_cb.lineEdit().setText(get(10))
+        self.scope_cb.lineEdit().setText(get(11))
+        self.dns_le.setText(get(12))
+        self.resolution_cb.lineEdit().setText(get(13))
+        self.note_le.setText(get(14))
+
+
+
+    # ─── on_key_row_double_clicked ─────────────────────────────
+    def _safe_set(dateedit: QDateEdit, txt: str):
+        for fmt in ("yyyy-MM-dd", "dd.MM.yyyy"):
+            qd = QDate.fromString(txt, fmt)
+            if qd.isValid():  # ✔ только валидные даты
+                dateedit.setDate(qd)
+                break  # нашли – хватит
+
+    self.table_widget10 = KeysTable()
+
     headers = [
-        "Заявка", "Дата", "Среда", "Доступ", "УЦ", "Инициатор",
-        "Владелец АС", "Алгоритм", "Область/ЭДО", "DNS",
-        "Резолюция", "Примечание"
+        "ID", "Заявка", "Дата", "Среда", "Доступ", "УЦ",
+        "Инициатор", "Владелец АС", "Алгоритм", "Область/ЭДО",
+        "DNS", "Резолюция", "Примечание"
     ]
+    self.table_widget10.setHorizontalHeaderLabels(headers)
     self.table_widget10.setColumnCount(len(headers))
     self.table_widget10.setHorizontalHeaderLabels(headers)
     self.table_widget10.verticalHeader().setVisible(False)
@@ -365,8 +439,9 @@ def load_data10(self) -> None:
     self.table_widget10.setRowCount(len(rows))
     for r, row in enumerate(rows):
         cols = [
+            row.get("ID"),
             row.get("number"),
-            row.get("date"),          # в БД это DATE → str() даст 'YYYY-MM-DD'
+            row.get("date"),
             row.get("environment"),
             row.get("access"),
             row.get("issuer"),
@@ -379,12 +454,14 @@ def load_data10(self) -> None:
             row.get("note"),
         ]
         for c, val in enumerate(cols):
-            it = QTableWidgetItem("" if val is None else str(val))
-            # запоминаем «оригинал» для возможного отката
-            it.setData(Qt.ItemDataRole.UserRole, it.text())
-            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft |
-                                 Qt.AlignmentFlag.AlignVCenter)
-            self.table_widget10.setItem(r, c, it)
+            for c, val in enumerate(cols):
+                it = QTableWidgetItem("" if val is None else str(val))
+                it.setData(Qt.ItemDataRole.UserRole, it.text())  # «оригинал»
+
+                if c == 0:  # ID
+                    it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.table_widget10.setItem(r, c, it)
+        self.table_widget10.setColumnHidden(0, True)
 
     self.table_widget10.resizeRowsToContents()
     self.table_widget10.blockSignals(False)
