@@ -15,7 +15,7 @@ from PyQt6.QtCore import (
 
 
 # ────────────────────────────────────────────────────────────────────────
-# HoverButton с анимацией при enter/leave и press/release
+# HoverButton с анимацией при enter/leave и press/releas
 # ────────────────────────────────────────────────────────────────────────
 class HoverButton(QFrame):
     def __init__(self, txt, parent=None):

@@ -186,22 +186,23 @@ def create_page8(self) -> QWidget:
     FL.addRow("Владелец", self.owner_cb_key)
 
     # ── правая форма
-    self.vip_cb = _combo("VIP / Critical", ["VIP", "Critical"], f_body)
+    self.vip_cb = _combo("VIP / Critical", ["Да", "Нет"], f_body)
     self.dateedit1_key = _date(f_body)
+    self.dateedit1_key.dateChanged.connect(lambda: auto_set_end_date(self))
     self.dateedit2 = _date(f_body)
     self.additional_cb_key = _combo("Дополнительно", [], f_body)
-    self.request_let_key = _edit("Номер обращения", f_body)
+    # единственное создание «Номер заявки»
+    self.request_let_key = _edit("Номер заявки", f_body)
+    self.request_let_key.setValidator(QIntValidator(0, 2_000_000_000, self))
     self.note_le_key = _edit("Примечание", f_body)
 
     FR.addRow("VIP / Critical", self.vip_cb)
     FR.addRow("Дата начала", self.dateedit1_key)
     FR.addRow("Дата окончания", self.dateedit2)
     FR.addRow("Дополнительно", self.additional_cb_key)
-    FR.addRow("Номер обращения", self.request_let_key)
+    FR.addRow("Номер заявки", self.request_let_key)
     FR.addRow("Примечание", self.note_le_key)
-    self.request_let_key = _edit("Номер обращения", f_body)
-    self.request_let_key.setValidator(QIntValidator(0, 2_000_000_000, self))
-    FR.addRow("Номер обращения", self.request_let_key)
+
 
     # ── кнопка «Сохранить»
     btn_save = _btn("Сохранить", 30)
@@ -236,6 +237,14 @@ def create_page8(self) -> QWidget:
     QShortcut(QKeySequence("Return"), page).activated.connect(lambda: save_value8(self))
 
     fill_recent_values8(self)
+
+    self.date_end_was_modified = False  # до подключения сигналов
+    self.dateedit2.dateChanged.connect(lambda: setattr(self, 'date_end_was_modified', True))
+
+    # Устанавливаем дату окончания на +1 год - 1 день
+    initial_start_date = self.dateedit1_key.date()
+    self.dateedit2.setDate(initial_start_date.addYears(1).addDays(-1))
+    self.dateedit1_key.dateChanged.connect(lambda: auto_set_end_date(self))
 
     return page
 
@@ -341,7 +350,9 @@ def on_key_row_double_clicked(self, item: QTableWidgetItem):
     self.issuer_cb_key.lineEdit().setText(get(4))
     self.scope_cb_key.lineEdit().setText(get(5))
     self.owner_cb_key.lineEdit().setText(get(6))
-    self.vip_cb.lineEdit().setText(get(7))
+    vip_raw = get(7)
+    vip_value = "Да" if vip_raw == "VIP" else "Нет" if vip_raw == "Critical" else ""
+    self.vip_cb.lineEdit().setText(vip_value)
     # ─── дата начала ─────────────────────────────────────────
     _safe_set(self.dateedit1_key, get(8))
     _safe_set(self.dateedit2, get(9))  # конец
@@ -541,7 +552,7 @@ def save_value8(self):
     if not self.vip_cb.currentText():
         errors.append("Поле «VIP / Critical» не должно быть пустым.")
     if not self.request_let_key.text().strip():
-        errors.append("Поле «Номер обращения» не должно быть пустым.")
+        errors.append("Поле «Номер заявки» не должно быть пустым.")
 
     # Если есть ошибки, показываем диалог и выходим
     if errors:
@@ -559,7 +570,8 @@ def save_value8(self):
     issuer_cb = self.issuer_cb_key.currentText()
     scope_cb = self.scope_cb_key.currentText()
     owner_cb = self.owner_cb_key.currentText()
-    vip_cb = self.vip_cb.currentText()
+    vip_cb_raw = self.vip_cb.currentText()
+    vip_cb = "VIP" if vip_cb_raw == "Да" else "Critical" if vip_cb_raw == "Нет" else ""
     dateedit1 = self.dateedit1_key.date().toPyDate().strftime('%Y-%m-%d')
     dateedit2 = self.dateedit2.date().toPyDate().strftime('%Y-%m-%d')
     additional_cb = self.additional_cb_key.currentText()
@@ -601,9 +613,17 @@ def clear_fields(self):
     # даты
     self.dateedit1_key.setDate(QDate.currentDate())
     self.dateedit2.setDate(QDate.currentDate())
+    self.date_end_was_modified = False
 
 
 # ────────────────────────────────────────────────────────────────
+
+def auto_set_end_date(self):
+    if not self.date_end_was_modified:
+        start_date = self.dateedit1_key.date()
+        end_date = start_date.addYears(1).addDays(-1)
+        self.dateedit2.setDate(end_date)
+
 def fill_recent_values8(self, limit: int = 5) -> None:
     """
     Заполняет динамические QComboBox-ы уникальными значениями

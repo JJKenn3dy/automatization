@@ -17,6 +17,8 @@ import re
 import subprocess
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QShortcut, QKeySequence
+from ui.animated_stack import AnimatedStackedWidget
+
 
 from ui.page1 import create_page1
 from ui.page2 import create_page2
@@ -50,7 +52,7 @@ class MainWindow(QMainWindow):
                   activated=lambda: self.showNormal() if self.isMaximized() else self.showMaximized())
 
         # 1) Создаем QStackedWidget
-        self.stacked_widget = QStackedWidget()
+        self.stacked_widget = AnimatedStackedWidget()
         self.setCentralWidget(self.stacked_widget)
 
         # 2) Создаем и добавляем страницы
@@ -702,51 +704,50 @@ class MainWindow(QMainWindow):
 
     def go_to_11_page(self):
         """Переключиться на 11 страницу (индекс 12)."""
-        self.stacked_widget.setCurrentIndex(10)
+        self.stacked_widget.slide_to_index(10)
 
     def go_to_license_3(self):
         """Переключиться на 10 страницу (индекс 11)."""
-        self.stacked_widget.setCurrentIndex(11)
+        self.stacked_widget.slide_to_index(11)
 
     def go_to_license_2(self):
         """Переключиться на 10 страницу (индекс 10)."""
-        self.stacked_widget.setCurrentIndex(10)
+        self.stacked_widget.slide_to_index(10)
 
     def go_to_ten_page(self):
         """Переключиться на 10 страницу (индекс 9)."""
-        self.stacked_widget.setCurrentIndex(9)
+        self.stacked_widget.slide_to_index(9)
 
     def go_to_nine_page(self):
         """Переключиться на 9 страницу (индекс 8)."""
-        self.stacked_widget.setCurrentIndex(8)
+        self.stacked_widget.slide_to_index(8)
 
     def go_to_eight_page(self):
         """Переключиться на 8 страницу (индекс 7)."""
-        self.stacked_widget.setCurrentIndex(7)
+        self.stacked_widget.slide_to_index(7)
 
     def go_to_seven_page(self):
         """Переключиться на 7 страницу (индекс 6)."""
-        self.stacked_widget.setCurrentIndex(6)
+        self.stacked_widget.slide_to_index(6)
 
     def go_to_six_page(self):
         """Переключиться на 6 страницу (индекс 5)."""
-        self.stacked_widget.setCurrentIndex(5)
+        self.stacked_widget.slide_to_index(5)
 
     def go_to_five_page(self):
         """Переключиться на 5 страницу (индекс 4)."""
-        self.stacked_widget.setCurrentIndex(4)
+        self.stacked_widget.slide_to_index(4)
 
     def go_to_fourth_page(self):
         """Переключиться на 4 страницу (индекс 3)."""
-        self.stacked_widget.setCurrentIndex(3)
+        self.stacked_widget.slide_to_index(3)
 
     def go_to_third_page(self):
         """Переключиться на 3 страницу (индекс 2)."""
-        self.stacked_widget.setCurrentIndex(2)
+        self.stacked_widget.slide_to_index(2)
 
     def go_to_second_page(self):
-        """Переключиться на 2 страницу (индекс 1)."""
-        self.stacked_widget.setCurrentIndex(1)
+        self.stacked_widget.slide_to_index(1)
 
     def get_license_key(self):
 
@@ -771,11 +772,8 @@ class MainWindow(QMainWindow):
 
             return key_value
 
-
-
     def go_to_first_page(self):
-        """Вернуться на 1 страницу (индекс 0)."""
-        self.stacked_widget.setCurrentIndex(0)
+        self.stacked_widget.slide_to_index(0)
 
     def accept(self):
         fileManager()
